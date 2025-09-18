@@ -1,0 +1,5 @@
+{
+  "name": "Absence Points Calculator",
+  "description": "A web application to calculate remaining absence points for university courses based on credit hours, and missed lectures and tutorials.",
+  "requestFramePermissions": []
+}

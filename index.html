@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Absence Points Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/"
+  }
+}
+</script>
+  <script>
+    // Explicitly configure Tailwind CSS to use class-based dark mode.
+    // This is necessary for the toggle to work correctly with the CDN build.
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+  <script>
+    // Prevents FOUC by applying the theme class from localStorage before React mounts. Defaults to light.
+    if (localStorage.getItem('theme') === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  </script>
+  <style>
+      @media print {
+        .no-print {
+          display: none !important;
+        }
+        body {
+          background-color: #fff !important;
+        }
+        main {
+           padding: 0 !important;
+           margin: 0 !important;
+        }
+        .printable-card {
+           box-shadow: none !important;
+           border: 1px solid #ccc !important;
+           page-break-inside: avoid;
+        }
+        .dark {
+           --tw-bg-opacity: 1;
+           background-color: #fff !important;
+           color: #000 !important;
+        }
+        .dark .printable-card, .dark .printable-text, .dark .printable-bg {
+            --tw-bg-opacity: 1;
+            background-color: #fff !important;
+            color: #000 !important;
+            border-color: #ccc !important;
+        }
+      }
+    </style>
+</head>
+  <body class="bg-slate-50 dark:bg-slate-900 transition-colors duration-300">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
