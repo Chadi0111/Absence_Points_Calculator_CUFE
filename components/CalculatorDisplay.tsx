@@ -118,7 +118,7 @@ interface CourseCardProps {
   onMove: (id: string, direction: 'up' | 'down') => void;
   isFirst: boolean;
   isLast: boolean;
-  setIsAnyModalOpen: (isOpen: boolean) => void;
+  onModalToggle: (isOpen: boolean) => void;
 }
 
 export const CalculatorDisplay: React.FC<CourseCardProps> = React.memo(({
@@ -128,7 +128,7 @@ export const CalculatorDisplay: React.FC<CourseCardProps> = React.memo(({
   onMove,
   isFirst,
   isLast,
-  setIsAnyModalOpen,
+  onModalToggle,
 }) => {
   const { course, missedLectures, missedTutorials, id, customRules } = trackedCourse;
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -178,18 +178,23 @@ export const CalculatorDisplay: React.FC<CourseCardProps> = React.memo(({
 
   const openModal = (setter: React.Dispatch<React.SetStateAction<boolean>>) => {
       setter(true);
-      setIsAnyModalOpen(true);
+      onModalToggle(true);
   };
 
   const closeModal = (setter: React.Dispatch<React.SetStateAction<boolean>>) => {
       setter(false);
-      setIsAnyModalOpen(false);
+      onModalToggle(false);
   };
 
   const progressPercentage = calculation.totalPoints > 0 ? (calculation.remainingPoints / calculation.totalPoints) * 100 : 0;
 
+  const titleLength = course.name.length;
+  const titleClasses = `font-semibold text-slate-800 dark:text-slate-100 printable-text ${
+    titleLength > 60 ? 'text-base' : 'text-lg'
+  }`;
+
   const header = (
-    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+    <div className="grid grid-cols-[auto_1fr_auto] items-start gap-3 py-2">
         {/* Col 1: Move Buttons */}
         <div className="flex flex-col self-stretch justify-center no-print">
             <button onClick={() => onMove(id, 'up')} disabled={isFirst} className="p-1 rounded-full text-slate-400 dark:text-slate-500 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700"> <ArrowUpIcon /> </button>
@@ -198,7 +203,7 @@ export const CalculatorDisplay: React.FC<CourseCardProps> = React.memo(({
 
         {/* Col 2: Course Title */}
         <div className="min-w-0 py-1">
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 printable-text break-words">{course.name}</h2>
+            <h2 className={titleClasses}>{course.name}</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 printable-text">{course.creditHours} Credit Hours Course ({course.code})</p>
         </div>
 
@@ -213,6 +218,43 @@ export const CalculatorDisplay: React.FC<CourseCardProps> = React.memo(({
                 <ChevronDownIcon className={`h-6 w-6 text-slate-400 dark:text-slate-500 transition-transform transform ${isCollapsed ? '-rotate-180' : 'rotate-0'}`} />
             </button>
         </div>
+    </div>
+  );
+  
+  const mainContent = (
+      <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+        {customRules && (
+          <div className="no-print mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-500/30 flex items-center space-x-3">
+            <InfoIcon className="h-6 w-6 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+            <div className="text-blue-800 dark:text-blue-200 text-sm"> This course is using custom absence rules. Calculations do not reflect official bylaws. </div>
+          </div>
+        )}
+        <div className="flex flex-wrap items-start justify-center gap-6">
+          <div className="flex-1 space-y-3" style={{minWidth: '250px'}}>
+            <Counter label="Missed Lectures" count={missedLectures} onCountChange={(count) => onUpdate(id, { missedLectures: count })} helpText={`Each costs ${calculation.lectureCost} point(s)`} />
+            <Counter label="Missed Tutorials" count={missedTutorials} onCountChange={(count) => onUpdate(id, { missedTutorials: count })} helpText={hasNoTutorial ? 'No tutorials for this course' : `Each costs ${calculation.tutorialCost} point(s)`} disabled={hasNoTutorial} />
+          </div>
+          <div className="flex-shrink-0 flex flex-col items-center">
+            <div className="relative w-36 h-36">
+              <ProgressCircle progress={Math.max(0, progressPercentage)} status={calculation.status} />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className={`text-5xl font-bold printable-text ${calculation.status === 'safe' ? 'text-green-600 dark:text-green-400' : ''} ${calculation.status === 'warning' ? 'text-amber-600 dark:text-amber-400' : ''} ${calculation.status === 'danger' ? 'text-red-600 dark:text-red-400' : ''}`} >
+                  {calculation.remainingPoints}
+                </span>
+              </div>
+            </div>
+            <p className="mt-2 text-slate-500 dark:text-slate-400 text-sm printable-text text-center">out of {calculation.totalPoints} points</p>
+          </div>
+        </div>
+      </div>
+  );
+
+  const footer = (
+    <div className="pt-4">
+      <div className={`text-center p-3 rounded-lg font-medium text-sm printable-bg ${calculation.status === 'safe' ? 'bg-green-50 text-green-800 dark:bg-green-500/10 dark:text-green-200' : ''} ${calculation.status === 'warning' ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200' : ''} ${calculation.status === 'danger' ? 'bg-red-50 text-red-800 dark:bg-red-500/10 dark:text-red-200' : ''}`} >
+         {calculation.warningLevel && ( <span className={`font-bold uppercase text-xs tracking-wider rounded-full px-2 py-0.5 mr-2 ${calculation.status === 'warning' ? 'bg-amber-200 text-amber-900 dark:bg-amber-400/20 dark:text-amber-200' : ''}`} > {calculation.warningLevel} Warning </span> )}
+        <span className="printable-text">{calculation.message}</span>
+      </div>
     </div>
   );
 
@@ -250,40 +292,11 @@ export const CalculatorDisplay: React.FC<CourseCardProps> = React.memo(({
   return (
     <>
     <div className={`bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-5 border border-slate-200 dark:border-slate-700 printable-card dark:printable-bg transition-all duration-300 shadow-md flex flex-col h-full`}>
-      {header}
-      {!isCollapsed && (
-      <div className="mt-4 border-t border-slate-200 dark:border-slate-700 pt-4 flex flex-col flex-grow">
-        {customRules && (
-          <div className="no-print mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-500/30 flex items-center space-x-3">
-            <InfoIcon className="h-6 w-6 text-blue-500 dark:text-blue-400 flex-shrink-0" />
-            <div className="text-blue-800 dark:text-blue-200 text-sm"> This course is using custom absence rules. Calculations do not reflect official bylaws. </div>
-          </div>
-        )}
-        <div className="flex flex-wrap items-start justify-center gap-6 flex-grow">
-          <div className="flex-1 space-y-3" style={{minWidth: '250px'}}>
-            <Counter label="Missed Lectures" count={missedLectures} onCountChange={(count) => onUpdate(id, { missedLectures: count })} helpText={`Each costs ${calculation.lectureCost} point(s)`} />
-            <Counter label="Missed Tutorials" count={missedTutorials} onCountChange={(count) => onUpdate(id, { missedTutorials: count })} helpText={hasNoTutorial ? 'No tutorials for this course' : `Each costs ${calculation.tutorialCost} point(s)`} disabled={hasNoTutorial} />
-          </div>
-          <div className="flex-shrink-0 flex flex-col items-center">
-            <div className="relative w-36 h-36">
-              <ProgressCircle progress={Math.max(0, progressPercentage)} status={calculation.status} />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className={`text-5xl font-bold printable-text ${calculation.status === 'safe' ? 'text-green-600 dark:text-green-400' : ''} ${calculation.status === 'warning' ? 'text-amber-600 dark:text-amber-400' : ''} ${calculation.status === 'danger' ? 'text-red-600 dark:text-red-400' : ''}`} >
-                  {calculation.remainingPoints}
-                </span>
-              </div>
-            </div>
-            <p className="mt-2 text-slate-500 dark:text-slate-400 text-sm printable-text text-center">out of {calculation.totalPoints} points</p>
-          </div>
-        </div>
-        <div className="mt-6">
-          <div className={`text-center p-3 rounded-lg font-medium text-sm printable-bg ${calculation.status === 'safe' ? 'bg-green-50 text-green-800 dark:bg-green-500/10 dark:text-green-200' : ''} ${calculation.status === 'warning' ? 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200' : ''} ${calculation.status === 'danger' ? 'bg-red-50 text-red-800 dark:bg-red-500/10 dark:text-red-200' : ''}`} >
-             {calculation.warningLevel && ( <span className={`font-bold uppercase text-xs tracking-wider rounded-full px-2 py-0.5 mr-2 ${calculation.status === 'warning' ? 'bg-amber-200 text-amber-900 dark:bg-amber-400/20 dark:text-amber-200' : ''}`} > {calculation.warningLevel} Warning </span> )}
-            <span className="printable-text">{calculation.message}</span>
-          </div>
-        </div>
+      <div className="flex-grow">
+        {header}
+        {!isCollapsed && mainContent}
       </div>
-      )}
+      {!isCollapsed && footer}
     </div>
     {isSettingsOpen && <CustomRulesModal course={course} customRules={customRules} onClose={() => closeModal(setIsSettingsOpen)} onSave={(rules) => onUpdate(id, { customRules: rules })} onReset={() => onUpdate(id, { customRules: null })} />}
     {isAbsenceCombosModalOpen && <AbsenceCombosModal calculation={calculation} hasNoTutorial={hasNoTutorial} courseName={course.name} onClose={() => closeModal(setIsAbsenceCombosModalOpen)} />}

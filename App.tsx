@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { programsData } from './data/courseData';
 import { Program, Course, TrackedCourse, SavedDashboards, CustomRules } from './types';
@@ -204,8 +205,40 @@ const Combobox: React.FC<ComboboxProps> = ({ options, value, onChange, placehold
     );
 };
 
-// --- Main App Component ---
+// --- Custom Confirmation Modal ---
+interface ConfirmationModalProps {
+    request: {
+        title: string;
+        message: string;
+        onConfirm: () => void;
+    };
+    onClose: () => void;
+}
+const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ request, onClose }) => {
+    const handleConfirm = () => {
+        request.onConfirm();
+        onClose();
+    };
 
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 no-print" onClick={onClose}>
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{request.title}</h3>
+                <p className="mt-2 text-slate-600 dark:text-slate-300">{request.message}</p>
+                <div className="mt-6 flex justify-end space-x-3">
+                    <button onClick={onClose} className="px-4 py-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-200 font-semibold rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500">
+                        Cancel
+                    </button>
+                    <button onClick={handleConfirm} className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">
+                        {request.title.toLowerCase().includes('delete') ? 'Delete' : 'Confirm'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Main App Component ---
 const App: React.FC = () => {
   const [selectedProgramName, setSelectedProgramName] = useState<string>('');
   const [selectedSemester, setSelectedSemester] = useState<string>('');
@@ -222,7 +255,9 @@ const App: React.FC = () => {
   const [isDashboardManagerOpen, setIsDashboardManagerOpen] = useState(false);
   const [isBugModalOpen, setIsBugModalOpen] = useState(false);
   const [isExplanationModalOpen, setIsExplanationModalOpen] = useState(false);
-  const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
+  const [confirmationRequest, setConfirmationRequest] = useState<ConfirmationModalProps['request'] | null>(null);
+  const [calculatorModalsOpenCount, setCalculatorModalsOpenCount] = useState(0);
+
 
   // Theme state
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
@@ -236,10 +271,14 @@ const App: React.FC = () => {
 
   // Prevent body scroll when any modal is open
   useEffect(() => {
-    document.body.style.overflow = isAnyModalOpen ? 'hidden' : 'auto';
+    const isAModalOpen = isDashboardManagerOpen || isBugModalOpen || isExplanationModalOpen || !!confirmationRequest || calculatorModalsOpenCount > 0;
+    document.body.style.overflow = isAModalOpen ? 'hidden' : 'auto';
     return () => { document.body.style.overflow = 'auto'; };
-  }, [isAnyModalOpen]);
+  }, [isDashboardManagerOpen, isBugModalOpen, isExplanationModalOpen, confirmationRequest, calculatorModalsOpenCount]);
 
+  const onCalculatorModalToggle = useCallback((isOpen: boolean) => {
+    setCalculatorModalsOpenCount(prev => isOpen ? prev + 1 : Math.max(0, prev - 1));
+  }, []);
 
   // --- Storage & State Management ---
   const getFromStorage = <T,>(key: string, fallback: T): T => {
@@ -342,9 +381,14 @@ const App: React.FC = () => {
   }, []);
   
   const handleClearTrackedCourses = () => {
-    if (window.confirm("Are you sure you want to remove all courses from your dashboard? This action cannot be undone.")) {
-        setTrackedCourses([]);
-    }
+      setConfirmationRequest({
+        title: 'Clear Dashboard',
+        message: 'Are you sure you want to remove all courses from your dashboard? This action cannot be undone.',
+        onConfirm: () => {
+          setTrackedCourses([]);
+          setActiveDashboardName(null);
+        }
+      });
   };
 
   const handleSaveDashboard = () => {
@@ -369,30 +413,23 @@ const App: React.FC = () => {
         setSelectedCourseCode('');
     }
     setIsDashboardManagerOpen(false);
-    setIsAnyModalOpen(false);
   };
 
   const handleDeleteDashboard = (name: string) => {
-    const confirmation = window.confirm(`Are you sure you want to delete the "${name}" dashboard?`);
-    if(confirmation) {
-        setSavedDashboards(prev => {
-            const newDashboards = { ...prev };
-            delete newDashboards[name];
-            return newDashboards;
-        });
-        if (name === activeDashboardName) {
-            setActiveDashboardName(null);
-        }
-    }
-  };
-  
-  const handleClearDashboardFromManager = () => {
-    if (window.confirm("Are you sure you want to clear the entire dashboard? This action cannot be undone.")) {
-        setTrackedCourses([]);
-        setActiveDashboardName(null);
-        setIsDashboardManagerOpen(false);
-        setIsAnyModalOpen(false);
-    }
+      setConfirmationRequest({
+          title: 'Delete Dashboard',
+          message: `Are you sure you want to delete the "${name}" dashboard? This action cannot be undone.`,
+          onConfirm: () => {
+              setSavedDashboards(prev => {
+                  const newDashboards = { ...prev };
+                  delete newDashboards[name];
+                  return newDashboards;
+              });
+              if (name === activeDashboardName) {
+                  setActiveDashboardName(null);
+              }
+          }
+      });
   };
   
   const handleExportSpecificDashboard = (name: string) => {
@@ -450,7 +487,6 @@ const App: React.FC = () => {
     };
     reader.readAsText(file);
     setIsDashboardManagerOpen(false);
-    setIsAnyModalOpen(false);
   };
 
   const bugReportDetails = {
@@ -479,7 +515,7 @@ const App: React.FC = () => {
             <div>
               <div className="flex items-center justify-center gap-2">
                   <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-slate-100">Absence Tool</h1>
-                  <button onClick={() => {setIsExplanationModalOpen(true); setIsAnyModalOpen(true);}} className="text-slate-400 hover:text-indigo-500 dark:text-slate-500 dark:hover:text-indigo-400">
+                  <button onClick={() => setIsExplanationModalOpen(true)} className="text-slate-400 hover:text-indigo-500 dark:text-slate-500 dark:hover:text-indigo-400">
                       <QuestionMarkCircleIcon className="h-7 w-7" />
                   </button>
               </div>
@@ -540,7 +576,7 @@ const App: React.FC = () => {
                     <button onClick={handleAddCourse} disabled={!selectedCourseCode || trackedCourses.some(tc => tc.course.code === selectedCourseCode) || !selectedSemester} className="w-full sm:w-auto p-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition disabled:bg-slate-400 dark:disabled:bg-slate-600 disabled:cursor-not-allowed">
                         Add Course
                     </button>
-                    <button onClick={() => {setIsDashboardManagerOpen(true); setIsAnyModalOpen(true);}} className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-4 py-3 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">
+                    <button onClick={() => setIsDashboardManagerOpen(true)} className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-4 py-3 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">
                         <FolderIcon />
                         Manage Dashboards
                     </button>
@@ -570,7 +606,7 @@ const App: React.FC = () => {
 
           <div className="mt-8">
             {trackedCourses.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {trackedCourses.map((tc, index) => (
                         <CalculatorDisplay
                             key={tc.id}
@@ -580,7 +616,7 @@ const App: React.FC = () => {
                             onMove={handleMoveCourse}
                             isFirst={index === 0}
                             isLast={index === trackedCourses.length - 1}
-                            setIsAnyModalOpen={setIsAnyModalOpen}
+                            onModalToggle={onCalculatorModalToggle}
                         />
                     ))}
                 </div>
@@ -598,7 +634,7 @@ const App: React.FC = () => {
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Student-led initiative, not an official university website.
               </p>
-              <button onClick={() => {setIsBugModalOpen(true); setIsAnyModalOpen(true);}} className="inline-flex items-center gap-2 px-3 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition text-sm">
+              <button onClick={() => setIsBugModalOpen(true)} className="inline-flex items-center gap-2 px-3 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition text-sm">
                 <BugIcon className="h-4 w-4" />
                 Report a Bug
               </button>
@@ -612,7 +648,7 @@ const App: React.FC = () => {
       </main>
 
       {isDashboardManagerOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 no-print" onClick={() => {setIsDashboardManagerOpen(false); setIsAnyModalOpen(false);}}>
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 no-print" onClick={() => setIsDashboardManagerOpen(false)}>
               <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
                   <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-lg mb-3">Save Current Dashboard</h3>
                   <div className="flex space-x-2">
@@ -656,19 +692,17 @@ const App: React.FC = () => {
 
                   <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-lg mb-3">Global Actions</h3>
                   <input type="file" ref={importFileRef} onChange={handleImportDashboard} accept=".json,application/json" style={{ display: 'none' }} />
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                      {/* FIX: Corrected typo from importFileFileRef to importFileRef */}
+                  <div className="grid grid-cols-1 gap-2 text-sm">
                       <button onClick={() => importFileRef.current?.click()} className="w-full text-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 flex items-center justify-center gap-2"> <UploadIcon /> Import </button>
-                      <button onClick={handleClearDashboardFromManager} className="w-full text-center px-3 py-2 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600"> Clear Dashboard </button>
                   </div>
               </div>
           </div>
       )}
       
       {isBugModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={() => {setIsBugModalOpen(false); setIsAnyModalOpen(false);}}>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={() => setIsBugModalOpen(false)}>
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-lg p-6 relative" onClick={e => e.stopPropagation()}>
-                <button onClick={() => {setIsBugModalOpen(false); setIsAnyModalOpen(false);}} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"> <XIcon /> </button>
+                <button onClick={() => setIsBugModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"> <XIcon /> </button>
                 <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Report a Bug</h2>
                 <p className="text-slate-600 dark:text-slate-300 mb-4">To report a bug, please send an email. You can copy the email address and the template below to help us understand the issue.</p>
                 <div className="space-y-4">
@@ -692,9 +726,9 @@ const App: React.FC = () => {
       )}
 
       {isExplanationModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={() => {setIsExplanationModalOpen(false); setIsAnyModalOpen(false);}}>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={() => setIsExplanationModalOpen(false)}>
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-lg p-6 relative" onClick={e => e.stopPropagation()}>
-                <button onClick={() => {setIsExplanationModalOpen(false); setIsAnyModalOpen(false);}} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"> <XIcon /> </button>
+                <button onClick={() => setIsExplanationModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"> <XIcon /> </button>
                 <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Absence Policy Explained</h2>
                 <div className="space-y-4 text-slate-600 dark:text-slate-300">
                     <p>The absence point system is based on the credit hours (CH) of each course.</p>
@@ -724,6 +758,13 @@ const App: React.FC = () => {
                 </div>
             </div>
         </div>
+      )}
+
+      {confirmationRequest && (
+          <ConfirmationModal 
+              request={confirmationRequest}
+              onClose={() => setConfirmationRequest(null)}
+          />
       )}
     </div>
   );
