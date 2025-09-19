@@ -4,12 +4,6 @@ import { Counter } from './Counter';
 
 // --- Helper Icon Components (defined in-file to adhere to constraints) ---
 
-const StarIcon: React.FC<{ isFavorite: boolean }> = ({ isFavorite }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 transition-colors duration-200 ${isFavorite ? 'text-amber-400 fill-current' : 'text-slate-400 hover:text-amber-400 dark:text-slate-500 dark:hover:text-amber-400'}`} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isFavorite ? 0 : 2} fill="none" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-  </svg>
-);
-
 const TrashIcon: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
         <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -45,16 +39,12 @@ interface CourseCardProps {
   trackedCourse: TrackedCourse;
   onUpdate: (id: string, updates: { missedLectures?: number; missedTutorials?: number; customRules?: CustomRules | null }) => void;
   onRemove: (id: string) => void;
-  isFavorite: boolean;
-  onToggleFavorite: (courseCode: string) => void;
 }
 
 export const CalculatorDisplay: React.FC<CourseCardProps> = ({
   trackedCourse,
   onUpdate,
   onRemove,
-  isFavorite,
-  onToggleFavorite,
 }) => {
   const { course, missedLectures, missedTutorials, id, customRules } = trackedCourse;
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -112,9 +102,6 @@ export const CalculatorDisplay: React.FC<CourseCardProps> = ({
         <div className="flex items-center space-x-2 flex-shrink-0 no-print">
           <button onClick={() => setIsSettingsOpen(true)} aria-label={`Custom rules for ${course.name}`} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
             <SettingsIcon />
-          </button>
-          <button onClick={() => onToggleFavorite(course.code)} aria-label={`Toggle favorite for ${course.name}`} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
-            <StarIcon isFavorite={isFavorite} />
           </button>
           <button onClick={() => onRemove(id)} aria-label={`Remove ${course.name}`} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
             <TrashIcon />

@@ -18,12 +18,6 @@ const TrashIcon: React.FC<{className?: string}> = ({ className = 'h-5 w-5' }) =>
     </svg>
 );
 
-const StarIcon: React.FC<{ isFavorite: boolean; className?: string }> = ({ isFavorite, className = 'h-6 w-6' }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" className={`${className} transition-colors duration-200 ${isFavorite ? 'text-amber-400 fill-current' : 'text-slate-400 hover:text-amber-400 dark:text-slate-500 dark:hover:text-amber-400'}`} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isFavorite ? 0 : 2} fill="none" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-  </svg>
-);
-
 const FolderIcon: React.FC<{ className?: string }> = ({ className = 'h-5 w-5' }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
         <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
@@ -84,6 +78,25 @@ const PrintIcon: React.FC<{ className?: string }> = ({ className = 'h-5 w-5' }) 
     </svg>
 );
 
+const XCircleIcon: React.FC<{ className?: string }> = ({ className = 'h-5 w-5' }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+
+const UploadIcon: React.FC<{ className?: string }> = ({ className = 'h-4 w-4' }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+    </svg>
+);
+
+const DownloadIcon: React.FC<{ className?: string }> = ({ className = 'h-4 w-4' }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+);
+
+
 // --- Custom Combobox Component ---
 interface ComboboxOption { value: string; label: string; }
 
@@ -123,7 +136,7 @@ const Combobox: React.FC<ComboboxProps> = ({ options, value, onChange, placehold
     }, [selectedOption]);
 
     return (
-        <div className="relative w-full">
+        <div className="relative w-full" ref={containerRef}>
             <input
                 type="text"
                 value={inputValue}
@@ -134,7 +147,7 @@ const Combobox: React.FC<ComboboxProps> = ({ options, value, onChange, placehold
                 onFocus={() => setIsOpen(true)}
                 placeholder={placeholder}
                 disabled={disabled}
-                className="w-full p-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-slate-100"
+                className="w-full p-3 pr-10 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-slate-100"
             />
             {isOpen && !disabled && (
                 <ul className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
@@ -175,6 +188,7 @@ const App: React.FC = () => {
   const [dashboardName, setDashboardName] = useState('');
   const [isDashboardManagerOpen, setIsDashboardManagerOpen] = useState(false);
   const dashboardManagerRef = useRef<HTMLDivElement>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
   const [isBugModalOpen, setIsBugModalOpen] = useState(false);
   const [isExplanationModalOpen, setIsExplanationModalOpen] = useState(false);
   const [copiedItem, setCopiedItem] = useState<'email' | 'body' | null>(null);
@@ -201,13 +215,9 @@ const App: React.FC = () => {
     } catch (error) { return fallback; }
   };
   
-  const [favoritePrograms, setFavoritePrograms] = useState<string[]>(() => getFromStorage('favoritePrograms', []));
-  const [favoriteCourses, setFavoriteCourses] = useState<string[]>(() => getFromStorage('favoriteCourses', []));
   const [savedDashboards, setSavedDashboards] = useState<SavedDashboards>(() => getFromStorage('savedDashboards', {}));
 
   useEffect(() => { localStorage.setItem('trackedCourses', JSON.stringify(trackedCourses)); }, [trackedCourses]);
-  useEffect(() => { localStorage.setItem('favoritePrograms', JSON.stringify(favoritePrograms)); }, [favoritePrograms]);
-  useEffect(() => { localStorage.setItem('favoriteCourses', JSON.stringify(favoriteCourses)); }, [favoriteCourses]);
   useEffect(() => { localStorage.setItem('savedDashboards', JSON.stringify(savedDashboards)); }, [savedDashboards]);
 
   useEffect(() => {
@@ -220,36 +230,16 @@ const App: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const toggleFavoriteProgram = useCallback((programName: string) => {
-    setFavoritePrograms(prev => prev.includes(programName) ? prev.filter(p => p !== programName) : [...prev, programName]);
-  }, []);
-
-  const toggleFavoriteCourse = useCallback((courseCode: string) => {
-    setFavoriteCourses(prev => prev.includes(courseCode) ? prev.filter(c => c !== courseCode) : [...prev, courseCode]);
-  }, []);
-
   const selectedProgram = useMemo(() => programsData.find(p => p.name === selectedProgramName), [selectedProgramName]);
 
   const sortedPrograms = useMemo(() => {
-    return [...programsData].sort((a, b) => {
-      const aIsFav = favoritePrograms.includes(a.name);
-      const bIsFav = favoritePrograms.includes(b.name);
-      if (aIsFav && !bIsFav) return -1;
-      if (!aIsFav && bIsFav) return 1;
-      return a.name.localeCompare(b.name);
-    });
-  }, [favoritePrograms]);
+    return [...programsData].sort((a, b) => a.name.localeCompare(b.name));
+  }, []);
 
   const sortedCourses = useMemo(() => {
     if (!selectedProgram) return [];
-    return [...selectedProgram.courses].sort((a, b) => {
-      const aIsFav = favoriteCourses.includes(a.code);
-      const bIsFav = favoriteCourses.includes(b.code);
-      if (aIsFav && !bIsFav) return -1;
-      if (!aIsFav && bIsFav) return 1;
-      return 0;
-    });
-  }, [selectedProgram, favoriteCourses]);
+    return [...selectedProgram.courses].sort((a, b) => a.name.localeCompare(b.name));
+  }, [selectedProgram]);
 
   const handleProgramChange = (value: string) => {
     setSelectedProgramName(value);
@@ -298,11 +288,62 @@ const App: React.FC = () => {
         });
     }
   };
+  
+  const handleClearDashboard = () => {
+    if (window.confirm("Are you sure you want to clear the entire dashboard? This action cannot be undone.")) {
+        setTrackedCourses([]);
+        setIsDashboardManagerOpen(false);
+    }
+  };
+  
+  const handleExportDashboard = () => {
+    if (trackedCourses.length === 0) {
+        alert("Dashboard is empty. Nothing to export.");
+        return;
+    }
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(trackedCourses, null, 2))}`;
+    const link = document.createElement("a");
+    link.href = jsonString;
+    link.download = `absence_dashboard_${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    setIsDashboardManagerOpen(false);
+  };
+  
+  const handleImportDashboard = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const text = e.target?.result;
+            if (typeof text !== 'string') throw new Error("File could not be read.");
+            const importedCourses: TrackedCourse[] = JSON.parse(text);
+            
+            // Basic validation
+            if (Array.isArray(importedCourses) && importedCourses.every(c => c.course?.code && c.id && 'missedLectures' in c)) {
+                setTrackedCourses(importedCourses);
+                alert("Dashboard imported successfully!");
+            } else {
+                throw new Error("Invalid dashboard file format.");
+            }
+        } catch (error) {
+            alert(`Error importing dashboard: ${error instanceof Error ? error.message : "Unknown error"}`);
+        } finally {
+            if (event.target) {
+                event.target.value = '';
+            }
+        }
+    };
+    reader.readAsText(file);
+    setIsDashboardManagerOpen(false);
+  };
+
 
   const bugReportDetails = {
     recipient: 'Chadi.Cherri06@eng-st.cu.edu.eg',
     subject: 'Bug Report - Absence Points Calculator',
-    body: `Hello,\n\nI'd like to report a bug.\n\n**Bug Description:**\n[Please describe the bug in detail here]\n\n**Steps to Reproduce:**\n1.\n2.\n3.\n\n**Expected Behavior:**\n[What did you expect to happen?]\n\n**Actual Behavior:**\n[What actually happened?]\n\n---\nApp Version: 3.4.0\nBrowser: [Please fill in your browser and version, e.g., Chrome 125]`
+    body: `Hello,\n\nI'd like to report a bug.\n\n**Bug Description:**\n[Please describe the bug in detail here]\n\n**Steps to Reproduce:**\n1.\n2.\n3.\n\n**Expected Behavior:**\n[What did you expect to happen?]\n\n**Actual Behavior:**\n[What actually happened?]\n\n---\nApp Version: 3.5.0\nBrowser: [Please fill in your browser and version, e.g., Chrome 125]`
   };
 
   const handleCopy = (text: string, type: 'email' | 'body') => {
@@ -319,52 +360,47 @@ const App: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center p-4 font-sans transition-colors duration-300">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center p-4 font-sans transition-colors duration-300">
       <main className="w-full max-w-5xl mx-auto">
         <div className="bg-white dark:bg-slate-800/50 dark:backdrop-blur-sm rounded-2xl shadow-xl dark:shadow-slate-900/50 p-6 sm:p-10 border border-transparent dark:border-slate-700/50">
-          <div className="relative no-print">
-             <div className="text-center mb-8">
-                <div className="flex items-center justify-center gap-2">
-                    <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-slate-100">Absence Points Dashboard</h1>
-                    <button onClick={() => setIsExplanationModalOpen(true)} className="text-slate-400 hover:text-indigo-500 dark:text-slate-500 dark:hover:text-indigo-400">
-                        <QuestionMarkCircleIcon className="h-7 w-7" />
-                    </button>
+          <div className="flex items-center justify-between mb-8 no-print">
+             <div className="flex items-center justify-center gap-2">
+                <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-slate-100">Absence Points</h1>
+                <button onClick={() => setIsExplanationModalOpen(true)} className="text-slate-400 hover:text-indigo-500 dark:text-slate-500 dark:hover:text-indigo-400">
+                    <QuestionMarkCircleIcon className="h-7 w-7" />
+                </button>
+            </div>
+            <button
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              className="w-16 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center p-1 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              aria-label="Toggle dark mode"
+            >
+                <div className="absolute w-full flex justify-between items-center px-2">
+                    <SunIcon className="h-4 w-4 text-yellow-500" />
+                    <MoonIcon className="h-4 w-4 text-sky-400" />
                 </div>
-                <p className="text-slate-500 dark:text-slate-400 mt-2">Track, save, and load multiple course dashboards.</p>
-             </div>
-              <button
-                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                className="absolute top-0 right-0 w-16 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center p-1 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                aria-label="Toggle dark mode"
-              >
-                  <div className="absolute w-full flex justify-between items-center px-2">
-                      <SunIcon className="h-4 w-4 text-yellow-500" />
-                      <MoonIcon className="h-4 w-4 text-slate-300" />
-                  </div>
-                  <div
-                      className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
-                      theme === 'dark' ? 'translate-x-8' : 'translate-x-0'
-                      }`}
-                  />
-              </button>
+                <div
+                    className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
+                    theme === 'dark' ? 'translate-x-8' : 'translate-x-0'
+                    }`}
+                />
+            </button>
           </div>
+          <p className="text-center text-slate-500 dark:text-slate-400 -mt-6 mb-8 no-print">Track, save, and manage your course absence points.</p>
           
           <div className="space-y-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700/50 no-print">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Combobox options={semesterOptions} value={selectedSemester} onChange={setSelectedSemester} placeholder="Select a Semester" />
-
-              <div className="flex items-center space-x-2">
-                 <Combobox options={sortedPrograms.map(p => ({ value: p.name, label: `${favoritePrograms.includes(p.name) ? '★ ' : ''}${p.name}` }))} value={selectedProgramName} onChange={handleProgramChange} placeholder="Search for a Program" />
-                 <button onClick={() => selectedProgramName && toggleFavoriteProgram(selectedProgramName)} disabled={!selectedProgramName} className="p-2 disabled:opacity-50" aria-label="Toggle Favorite Program">
-                   <StarIcon isFavorite={favoritePrograms.includes(selectedProgramName)} />
-                 </button>
+              <div className="relative">
+                <Combobox options={semesterOptions} value={selectedSemester} onChange={setSelectedSemester} placeholder="Select a Semester" />
+                {selectedSemester && <button onClick={() => setSelectedSemester('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><XCircleIcon /></button>}
               </div>
-
-              <div className="flex items-center space-x-2">
-                <Combobox options={sortedCourses.map(c => ({ value: c.code, label: `${favoriteCourses.includes(c.code) ? '★ ' : ''}${c.name} (${c.code})` }))} value={selectedCourseCode} onChange={setSelectedCourseCode} placeholder="Search for a Course" disabled={!selectedProgram || !selectedSemester} />
-                <button onClick={() => selectedCourseCode && toggleFavoriteCourse(selectedCourseCode)} disabled={!selectedCourseCode} className="p-2 disabled:opacity-50" aria-label="Toggle Favorite Course">
-                  <StarIcon isFavorite={favoriteCourses.includes(selectedCourseCode)} />
-                </button>
+              <div className="relative">
+                 <Combobox options={sortedPrograms.map(p => ({ value: p.name, label: p.name }))} value={selectedProgramName} onChange={handleProgramChange} placeholder="Search for a Program" />
+                 {selectedProgramName && <button onClick={() => { setSelectedProgramName(''); setSelectedCourseCode(''); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><XCircleIcon /></button>}
+              </div>
+              <div className="relative">
+                <Combobox options={sortedCourses.map(c => ({ value: c.code, label: `${c.name} (${c.code})` }))} value={selectedCourseCode} onChange={setSelectedCourseCode} placeholder="Search for a Course" disabled={!selectedProgram || !selectedSemester} />
+                {selectedCourseCode && <button onClick={() => setSelectedCourseCode('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><XCircleIcon /></button>}
               </div>
             </div>
 
@@ -378,55 +414,71 @@ const App: React.FC = () => {
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row items-center sm:justify-end gap-3 pt-2">
-                <button
-                    onClick={handleAddCourse}
-                    disabled={!selectedCourseCode || trackedCourses.some(tc => tc.course.code === selectedCourseCode) || !selectedSemester}
-                    className="w-full sm:w-auto p-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition disabled:bg-slate-400 dark:disabled:bg-slate-600 disabled:cursor-not-allowed"
-                >
-                    Add Course to Dashboard
-                </button>
-                 <div className="relative" ref={dashboardManagerRef}>
-                    <button onClick={() => setIsDashboardManagerOpen(prev => !prev)} className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition text-xs uppercase tracking-wider">
-                        <FolderIcon className="h-4 w-4" />
-                        Manage Dashboards
-                        <ChevronDownIcon className={`h-4 w-4 transition-transform ${isDashboardManagerOpen ? 'rotate-180' : ''}`} />
+            <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-3 pt-2">
+                <div className="flex items-center gap-3">
+                   <button onClick={() => { setSelectedSemester(''); setSelectedProgramName(''); setSelectedCourseCode(''); }} className="p-2 text-sm text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 font-semibold">Clear Selections</button>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center sm:justify-end gap-3 w-full sm:w-auto">
+                    <button
+                        onClick={handleAddCourse}
+                        disabled={!selectedCourseCode || trackedCourses.some(tc => tc.course.code === selectedCourseCode) || !selectedSemester}
+                        className="w-full sm:w-auto p-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition disabled:bg-slate-400 dark:disabled:bg-slate-600 disabled:cursor-not-allowed"
+                    >
+                        Add Course to Dashboard
                     </button>
-                    {isDashboardManagerOpen && (
-                        <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 z-20 p-4">
-                            <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-base mb-3">Save current dashboard</h3>
-                            <div className="flex space-x-2">
-                                <input type="text" value={dashboardName} onChange={e => setDashboardName(e.target.value)} placeholder="Dashboard name..." className="w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-200"/>
-                                <button onClick={handleSaveDashboard} disabled={!dashboardName.trim() || trackedCourses.length === 0} className="px-3 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 disabled:bg-slate-400 dark:disabled:bg-slate-600 text-sm">Save</button>
+                    <div className="relative" ref={dashboardManagerRef}>
+                        <button onClick={() => setIsDashboardManagerOpen(prev => !prev)} className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition text-xs uppercase tracking-wider">
+                            <FolderIcon className="h-4 w-4" />
+                            Manage Dashboards
+                            <ChevronDownIcon className={`h-4 w-4 transition-transform ${isDashboardManagerOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isDashboardManagerOpen && (
+                            <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 z-20 p-4">
+                                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-base mb-3">Save current dashboard</h3>
+                                <div className="flex space-x-2">
+                                    <input type="text" value={dashboardName} onChange={e => setDashboardName(e.target.value)} placeholder="Dashboard name..." className="w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-200"/>
+                                    <button onClick={handleSaveDashboard} disabled={!dashboardName.trim() || trackedCourses.length === 0} className="px-3 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 disabled:bg-slate-400 dark:disabled:bg-slate-600 text-sm">Save</button>
+                                </div>
+                                <hr className="my-4 border-slate-200 dark:border-slate-700" />
+                                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-base mb-3">Load dashboard</h3>
+                                {Object.keys(savedDashboards).length > 0 ? (
+                                    <ul className="space-y-2 max-h-40 overflow-y-auto">
+                                        {Object.keys(savedDashboards).map(name => (
+                                            <li key={name} className="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 p-2 rounded">
+                                                <span className="text-slate-800 dark:text-slate-200 font-medium text-sm">{name}</span>
+                                                <div className="space-x-2">
+                                                    <button onClick={() => handleLoadDashboard(name)} className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400 text-sm">Load</button>
+                                                    <button onClick={() => handleDeleteDashboard(name)} className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-500" aria-label={`Delete ${name}`}>
+                                                        <TrashIcon className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="text-slate-500 dark:text-slate-400 text-sm">No saved dashboards.</p>
+                                )}
+                                <hr className="my-4 border-slate-200 dark:border-slate-700" />
+                                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-base mb-3">Dashboard Actions</h3>
+                                <input type="file" ref={importFileRef} onChange={handleImportDashboard} accept=".json" style={{ display: 'none' }} />
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <button onClick={() => importFileRef.current?.click()} className="w-full text-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 flex items-center justify-center gap-2">
+                                        <UploadIcon /> Import
+                                    </button>
+                                    <button onClick={handleExportDashboard} className="w-full text-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 flex items-center justify-center gap-2">
+                                        <DownloadIcon /> Export
+                                    </button>
+                                    <button onClick={() => window.print()} className="w-full text-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 flex items-center justify-center gap-2">
+                                        <PrintIcon className="h-4 w-4" /> Print
+                                    </button>
+                                    <button onClick={handleClearDashboard} className="w-full text-center px-3 py-2 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600">
+                                        Clear
+                                    </button>
+                                </div>
                             </div>
-                            <hr className="my-4 border-slate-200 dark:border-slate-700" />
-                            <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-base mb-3">Load dashboard</h3>
-                            {Object.keys(savedDashboards).length > 0 ? (
-                                <ul className="space-y-2 max-h-40 overflow-y-auto">
-                                    {Object.keys(savedDashboards).map(name => (
-                                        <li key={name} className="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 p-2 rounded">
-                                            <span className="text-slate-800 dark:text-slate-200 font-medium text-sm">{name}</span>
-                                            <div className="space-x-2">
-                                                <button onClick={() => handleLoadDashboard(name)} className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400 text-sm">Load</button>
-                                                <button onClick={() => handleDeleteDashboard(name)} className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-500" aria-label={`Delete ${name}`}>
-                                                    <TrashIcon className="h-4 w-4" />
-                                                </button>
-                                            </div>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <p className="text-slate-500 dark:text-slate-400 text-sm">No saved dashboards.</p>
-                            )}
-                            <hr className="my-4 border-slate-200 dark:border-slate-700" />
-                            <button onClick={() => window.print()} className="w-full text-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 text-sm mb-2 flex items-center justify-center gap-2">
-                                <PrintIcon className="h-4 w-4" />
-                                Print Current Dashboard
-                            </button>
-                            <button onClick={() => { setTrackedCourses([]); setIsDashboardManagerOpen(false); }} className="w-full text-center px-3 py-2 bg-slate-500 text-white font-semibold rounded-md hover:bg-slate-600 text-sm">Clear Current Dashboard</button>
-                        </div>
-                    )}
-                 </div>
+                        )}
+                    </div>
+                </div>
             </div>
           </div>
 
@@ -438,8 +490,6 @@ const App: React.FC = () => {
                   trackedCourse={tc}
                   onUpdate={handleUpdateCourse}
                   onRemove={handleRemoveCourse}
-                  isFavorite={favoriteCourses.includes(tc.course.code)}
-                  onToggleFavorite={toggleFavoriteCourse}
                 />
               ))
             ) : (
