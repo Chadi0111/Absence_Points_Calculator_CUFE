@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { programsData } from './data/courseData';
 import { Program, Course, TrackedCourse, SavedDashboards, CustomRules } from './types';
@@ -21,12 +23,6 @@ const TrashIcon: React.FC<{className?: string}> = ({ className = 'h-5 w-5' }) =>
 const FolderIcon: React.FC<{ className?: string }> = ({ className = 'h-5 w-5' }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
         <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
-    </svg>
-);
-
-const ChevronDownIcon: React.FC<{ className?: string }> = ({ className = 'h-5 w-5' }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
     </svg>
 );
 
@@ -72,12 +68,6 @@ const ExclamationIcon: React.FC<{ className?: string }> = ({ className = 'h-5 w-
     </svg>
 );
 
-const PrintIcon: React.FC<{ className?: string }> = ({ className = 'h-5 w-5' }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v6a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
-    </svg>
-);
-
 const XCircleIcon: React.FC<{ className?: string }> = ({ className = 'h-5 w-5' }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -93,6 +83,12 @@ const UploadIcon: React.FC<{ className?: string }> = ({ className = 'h-4 w-4' })
 const DownloadIcon: React.FC<{ className?: string }> = ({ className = 'h-4 w-4' }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+);
+
+const ShareIcon: React.FC<{ className?: string }> = ({ className = 'h-5 w-5' }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 20 20" fill="currentColor">
+        <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
     </svg>
 );
 
@@ -113,10 +109,32 @@ const Combobox: React.FC<ComboboxProps> = ({ options, value, onChange, placehold
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
-    const filteredOptions = useMemo(() => 
-        options.filter(option => option.label.toLowerCase().includes(inputValue.toLowerCase())),
-        [options, inputValue]
-    );
+    const filteredOptions = useMemo(() => {
+        const searchInput = inputValue.trim().toLowerCase();
+        if (!searchInput) return options;
+
+        // Separate search query into letter and number parts for flexible matching
+        const searchLetters = searchInput.replace(/[^a-z]/g, '');
+        const searchNumbers = searchInput.replace(/[^0-9]/g, '');
+
+        return options.filter(option => {
+            const optionLabel = option.label.toLowerCase(); // e.g., "electricity and magnetism (phys002)"
+            const optionCode = option.value.toLowerCase(); // e.g., "phys002"
+
+            // Get all searchable text (letters only) from the label
+            const searchableText = optionLabel.replace(/[^a-z]/g, ''); // e.g., "electricityandmagnetismphys"
+            
+            // Get numbers from the course code only
+            const searchableNumbers = optionCode.replace(/[^0-9]/g, ''); // e.g., "002"
+
+            // An option is a match if its text contains the search letters...
+            const letterMatch = searchLetters ? searchableText.includes(searchLetters) : true;
+            // ...and its code numbers contain the search numbers.
+            const numberMatch = searchNumbers ? searchableNumbers.includes(searchNumbers) : true;
+
+            return letterMatch && numberMatch;
+        });
+    }, [options, inputValue]);
 
     const selectedOption = useMemo(() => options.find(opt => opt.value === value), [options, value]);
 
@@ -174,7 +192,6 @@ const Combobox: React.FC<ComboboxProps> = ({ options, value, onChange, placehold
     );
 };
 
-
 // --- Main App Component ---
 
 const App: React.FC = () => {
@@ -187,12 +204,11 @@ const App: React.FC = () => {
   });
   const [dashboardName, setDashboardName] = useState('');
   const [isDashboardManagerOpen, setIsDashboardManagerOpen] = useState(false);
-  const dashboardManagerRef = useRef<HTMLDivElement>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
   const [isBugModalOpen, setIsBugModalOpen] = useState(false);
   const [isExplanationModalOpen, setIsExplanationModalOpen] = useState(false);
   const [copiedItem, setCopiedItem] = useState<'email' | 'body' | null>(null);
-  
+
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'light';
   });
@@ -219,18 +235,10 @@ const App: React.FC = () => {
 
   useEffect(() => { localStorage.setItem('trackedCourses', JSON.stringify(trackedCourses)); }, [trackedCourses]);
   useEffect(() => { localStorage.setItem('savedDashboards', JSON.stringify(savedDashboards)); }, [savedDashboards]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-        if (dashboardManagerRef.current && !dashboardManagerRef.current.contains(event.target as Node)) {
-            setIsDashboardManagerOpen(false);
-        }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
+  
   const selectedProgram = useMemo(() => programsData.find(p => p.name === selectedProgramName), [selectedProgramName]);
+  
+  const totalCreditHours = useMemo(() => trackedCourses.reduce((sum, tc) => sum + tc.course.creditHours, 0), [trackedCourses]);
 
   const sortedPrograms = useMemo(() => {
     return [...programsData].sort((a, b) => a.name.localeCompare(b.name));
@@ -261,13 +269,29 @@ const App: React.FC = () => {
   const handleRemoveCourse = useCallback((id: string) => {
     setTrackedCourses(prev => prev.filter(tc => tc.id !== id));
   }, []);
+  
+  const handleMoveCourse = useCallback((id: string, direction: 'up' | 'down') => {
+    setTrackedCourses(prev => {
+        const index = prev.findIndex(c => c.id === id);
+        if (index === -1) return prev;
+
+        const newIndex = direction === 'up' ? index - 1 : index + 1;
+        if (newIndex < 0 || newIndex >= prev.length) return prev;
+
+        const newCourses = [...prev];
+        // Swap elements
+        [newCourses[index], newCourses[newIndex]] = [newCourses[newIndex], newCourses[index]];
+        
+        return newCourses;
+    });
+  }, []);
+
 
   const handleSaveDashboard = () => {
     const name = dashboardName.trim();
     if (!name || trackedCourses.length === 0) return;
     setSavedDashboards(prev => ({ ...prev, [name]: trackedCourses }));
     setDashboardName('');
-    setIsDashboardManagerOpen(false);
   };
   
   const handleLoadDashboard = (name: string) => {
@@ -296,17 +320,52 @@ const App: React.FC = () => {
     }
   };
   
-  const handleExportDashboard = () => {
-    if (trackedCourses.length === 0) {
-        alert("Dashboard is empty. Nothing to export.");
+  const handleExportSpecificDashboard = (name: string) => {
+    const dashboardToExport = savedDashboards[name];
+    if (!dashboardToExport) {
+        alert("Could not find that dashboard.");
         return;
     }
-    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(trackedCourses, null, 2))}`;
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(dashboardToExport, null, 2))}`;
     const link = document.createElement("a");
     link.href = jsonString;
-    link.download = `absence_dashboard_${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `absence_dashboard_${name.replace(/\s+/g, '_')}.json`;
     link.click();
-    setIsDashboardManagerOpen(false);
+  }
+
+  const handlePrintSpecificDashboard = (name: string) => {
+    if (window.confirm(`This will load the "${name}" dashboard as your active one to prepare it for sharing or printing. Continue?`)) {
+        handleLoadDashboard(name);
+        setTimeout(() => window.print(), 100);
+    }
+  }
+
+  const handleShareDashboard = async (name: string) => {
+      const dashboardCourses = savedDashboards[name];
+      if (!dashboardCourses) return;
+      
+      let shareText = `Absence Dashboard: ${name}\n\n`;
+      dashboardCourses.forEach(tc => {
+          const isThreeCredit = tc.course.creditHours === 3;
+          const totalPoints = tc.customRules?.totalPoints ?? (isThreeCredit ? 10 : 6);
+          const lectureCost = tc.customRules?.lectureCost ?? (isThreeCredit ? 2 : 1);
+          const tutorialCost = tc.customRules?.tutorialCost ?? 1;
+          const pointsDeducted = (tc.missedLectures * lectureCost) + (tc.missedTutorials * tutorialCost);
+          const remainingPoints = totalPoints - pointsDeducted;
+          shareText += `- ${tc.course.name}: ${remainingPoints}/${totalPoints} points remaining\n`;
+      });
+      shareText += `\nTracked with Absence Tool.`;
+
+      if (navigator.share) {
+          try {
+              await navigator.share({ title: `Absence Dashboard: ${name}`, text: shareText });
+          } catch (error) {
+              console.error('Error sharing dashboard:', error);
+              handlePrintSpecificDashboard(name); // Fallback to print if sharing fails
+          }
+      } else {
+          handlePrintSpecificDashboard(name); // Fallback for browsers without Web Share API
+      }
   };
   
   const handleImportDashboard = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -320,7 +379,6 @@ const App: React.FC = () => {
             if (typeof text !== 'string') throw new Error("File could not be read.");
             const importedCourses: TrackedCourse[] = JSON.parse(text);
             
-            // Basic validation
             if (Array.isArray(importedCourses) && importedCourses.every(c => c.course?.code && c.id && 'missedLectures' in c)) {
                 setTrackedCourses(importedCourses);
                 alert("Dashboard imported successfully!");
@@ -339,11 +397,10 @@ const App: React.FC = () => {
     setIsDashboardManagerOpen(false);
   };
 
-
   const bugReportDetails = {
     recipient: 'Chadi.Cherri06@eng-st.cu.edu.eg',
-    subject: 'Bug Report - Absence Points Calculator',
-    body: `Hello,\n\nI'd like to report a bug.\n\n**Bug Description:**\n[Please describe the bug in detail here]\n\n**Steps to Reproduce:**\n1.\n2.\n3.\n\n**Expected Behavior:**\n[What did you expect to happen?]\n\n**Actual Behavior:**\n[What actually happened?]\n\n---\nApp Version: 3.5.0\nBrowser: [Please fill in your browser and version, e.g., Chrome 125]`
+    subject: 'Bug Report - Absence Tool',
+    body: `Hello,\n\nI'd like to report a bug.\n\n**Bug Description:**\n[Please describe the bug in detail here]\n\n**Steps to Reproduce:**\n1.\n2.\n3.\n\n**Expected Behavior:**\n[What did you expect to happen?]\n\n**Actual Behavior:**\n[What actually happened?]\n\n---\nApp Version: 4.1.0\nBrowser: [Please fill in your browser and version, e.g., Chrome 125]`
   };
 
   const handleCopy = (text: string, type: 'email' | 'body') => {
@@ -354,8 +411,7 @@ const App: React.FC = () => {
   };
 
   const semesterOptions = [
-    { value: 'Fall', label: 'Fall Semester' },
-    { value: 'Spring', label: 'Spring Semester' },
+    { value: 'Fall/Spring', label: 'Fall or Spring Semester' },
     { value: 'Summer', label: 'Summer Semester' },
   ];
 
@@ -363,30 +419,32 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center p-4 font-sans transition-colors duration-300">
       <main className="w-full max-w-5xl mx-auto">
         <div className="bg-white dark:bg-slate-800/50 dark:backdrop-blur-sm rounded-2xl shadow-xl dark:shadow-slate-900/50 p-6 sm:p-10 border border-transparent dark:border-slate-700/50">
-          <div className="flex items-center justify-between mb-8 no-print">
+          <div className="flex items-center justify-between mb-2 no-print">
              <div className="flex items-center justify-center gap-2">
-                <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-slate-100">Absence Points</h1>
+                <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-slate-100">Absence Tool</h1>
                 <button onClick={() => setIsExplanationModalOpen(true)} className="text-slate-400 hover:text-indigo-500 dark:text-slate-500 dark:hover:text-indigo-400">
                     <QuestionMarkCircleIcon className="h-7 w-7" />
                 </button>
             </div>
-            <button
-              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              className="w-16 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center p-1 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              aria-label="Toggle dark mode"
-            >
-                <div className="absolute w-full flex justify-between items-center px-2">
-                    <SunIcon className="h-4 w-4 text-yellow-500" />
-                    <MoonIcon className="h-4 w-4 text-sky-400" />
-                </div>
-                <div
-                    className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
-                    theme === 'dark' ? 'translate-x-8' : 'translate-x-0'
-                    }`}
-                />
-            </button>
+            <div className="flex items-center gap-4">
+               <button
+                  onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                  className="relative w-16 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center p-1 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  aria-label="Toggle dark mode"
+                >
+                    <div className="absolute inset-0 flex justify-between items-center px-2">
+                        <SunIcon className="h-4 w-4 text-yellow-500" />
+                        <MoonIcon className="h-4 w-4 text-sky-300" />
+                    </div>
+                    <div
+                        className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
+                        theme === 'dark' ? 'translate-x-8' : 'translate-x-0'
+                        }`}
+                    />
+                </button>
+            </div>
           </div>
-          <p className="text-center text-slate-500 dark:text-slate-400 -mt-6 mb-8 no-print">Track, save, and manage your course absence points.</p>
+          <p className="text-center text-slate-500 dark:text-slate-400 mb-8 no-print">Track, save, and manage your course absence points.</p>
           
           <div className="space-y-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700/50 no-print">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -414,84 +472,45 @@ const App: React.FC = () => {
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row items-center sm:justify-between gap-3 pt-2">
-                <div className="flex items-center gap-3">
-                   <button onClick={() => { setSelectedSemester(''); setSelectedProgramName(''); setSelectedCourseCode(''); }} className="p-2 text-sm text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 font-semibold">Clear Selections</button>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                <div className="flex items-center gap-4">
+                  <button onClick={() => { setSelectedSemester(''); setSelectedProgramName(''); setSelectedCourseCode(''); }} className="p-2 text-sm text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 font-semibold">Clear Selections</button>
+                   {trackedCourses.length > 0 && (
+                    <div className="text-left">
+                        <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{totalCreditHours} Total Credit Hours</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">on dashboard</p>
+                    </div>
+                   )}
                 </div>
-                <div className="flex flex-col sm:flex-row items-center sm:justify-end gap-3 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-3 w-full sm:w-auto">
                     <button
                         onClick={handleAddCourse}
                         disabled={!selectedCourseCode || trackedCourses.some(tc => tc.course.code === selectedCourseCode) || !selectedSemester}
                         className="w-full sm:w-auto p-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition disabled:bg-slate-400 dark:disabled:bg-slate-600 disabled:cursor-not-allowed"
                     >
-                        Add Course to Dashboard
+                        Add Course
                     </button>
-                    <div className="relative" ref={dashboardManagerRef}>
-                        <button onClick={() => setIsDashboardManagerOpen(prev => !prev)} className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition text-xs uppercase tracking-wider">
-                            <FolderIcon className="h-4 w-4" />
-                            Manage Dashboards
-                            <ChevronDownIcon className={`h-4 w-4 transition-transform ${isDashboardManagerOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                        {isDashboardManagerOpen && (
-                            <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-2xl border border-slate-200 dark:border-slate-700 z-20 p-4">
-                                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-base mb-3">Save current dashboard</h3>
-                                <div className="flex space-x-2">
-                                    <input type="text" value={dashboardName} onChange={e => setDashboardName(e.target.value)} placeholder="Dashboard name..." className="w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-200"/>
-                                    <button onClick={handleSaveDashboard} disabled={!dashboardName.trim() || trackedCourses.length === 0} className="px-3 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 disabled:bg-slate-400 dark:disabled:bg-slate-600 text-sm">Save</button>
-                                </div>
-                                <hr className="my-4 border-slate-200 dark:border-slate-700" />
-                                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-base mb-3">Load dashboard</h3>
-                                {Object.keys(savedDashboards).length > 0 ? (
-                                    <ul className="space-y-2 max-h-40 overflow-y-auto">
-                                        {Object.keys(savedDashboards).map(name => (
-                                            <li key={name} className="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 p-2 rounded">
-                                                <span className="text-slate-800 dark:text-slate-200 font-medium text-sm">{name}</span>
-                                                <div className="space-x-2">
-                                                    <button onClick={() => handleLoadDashboard(name)} className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400 text-sm">Load</button>
-                                                    <button onClick={() => handleDeleteDashboard(name)} className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-500" aria-label={`Delete ${name}`}>
-                                                        <TrashIcon className="h-4 w-4" />
-                                                    </button>
-                                                </div>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p className="text-slate-500 dark:text-slate-400 text-sm">No saved dashboards.</p>
-                                )}
-                                <hr className="my-4 border-slate-200 dark:border-slate-700" />
-                                <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-base mb-3">Dashboard Actions</h3>
-                                <input type="file" ref={importFileRef} onChange={handleImportDashboard} accept=".json" style={{ display: 'none' }} />
-                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                    <button onClick={() => importFileRef.current?.click()} className="w-full text-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 flex items-center justify-center gap-2">
-                                        <UploadIcon /> Import
-                                    </button>
-                                    <button onClick={handleExportDashboard} className="w-full text-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 flex items-center justify-center gap-2">
-                                        <DownloadIcon /> Export
-                                    </button>
-                                    <button onClick={() => window.print()} className="w-full text-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 flex items-center justify-center gap-2">
-                                        <PrintIcon className="h-4 w-4" /> Print
-                                    </button>
-                                    <button onClick={handleClearDashboard} className="w-full text-center px-3 py-2 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600">
-                                        Clear
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    <button onClick={() => setIsDashboardManagerOpen(true)} className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-4 py-3 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">
+                        <FolderIcon />
+                        Manage Dashboards
+                    </button>
                 </div>
             </div>
           </div>
 
           <div className="mt-8">
             {trackedCourses.length > 0 ? (
-              trackedCourses.map(tc => (
-                <CalculatorDisplay
-                  key={tc.id}
-                  trackedCourse={tc}
-                  onUpdate={handleUpdateCourse}
-                  onRemove={handleRemoveCourse}
-                />
-              ))
+                trackedCourses.map((tc, index) => (
+                    <CalculatorDisplay
+                        key={tc.id}
+                        trackedCourse={tc}
+                        onUpdate={handleUpdateCourse}
+                        onRemove={handleRemoveCourse}
+                        onMove={handleMoveCourse}
+                        isFirst={index === 0}
+                        isLast={index === trackedCourses.length - 1}
+                    />
+                ))
             ) : (
               <div className="text-center p-8 bg-slate-50 dark:bg-slate-900/50 rounded-lg mt-6 border-dashed border-2 border-slate-300 dark:border-slate-700 no-print">
                 <p className="text-slate-500 dark:text-slate-400">Your dashboard is empty.</p>
@@ -511,7 +530,7 @@ const App: React.FC = () => {
                 Report a Bug
               </button>
           </div>
-          <div className="pt-4 border-t border-slate-200 dark:border-slate-700 w-1/2 mx-auto">
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-700 w-full sm:w-1/2 mx-auto">
               <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
                 Created by Chadi Cherri
               </p>
@@ -519,10 +538,59 @@ const App: React.FC = () => {
                 Chadi.Cherri06@eng-st.cu.edu.eg
               </p>
           </div>
-          <p className="text-xs text-slate-400 dark:text-slate-500">&copy; {new Date().getFullYear()} Absence Points Calculator. All Rights Reserved.</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500">&copy; {new Date().getFullYear()} Absence Tool. All Rights Reserved.</p>
         </footer>
       </main>
 
+      {isDashboardManagerOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 no-print" onClick={() => setIsDashboardManagerOpen(false)}>
+              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-lg mb-3">Save Current Dashboard</h3>
+                  <div className="flex space-x-2">
+                      <input type="text" value={dashboardName} onChange={e => setDashboardName(e.target.value)} placeholder="Dashboard name..." className="w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-200"/>
+                      <button onClick={handleSaveDashboard} disabled={!dashboardName.trim() || trackedCourses.length === 0} className="px-3 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 disabled:bg-slate-400 dark:disabled:bg-slate-600 text-sm">Save</button>
+                  </div>
+                  <hr className="my-4 border-slate-200 dark:border-slate-700" />
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-lg mb-3">Saved Dashboards</h3>
+                  {Object.keys(savedDashboards).length > 0 ? (
+                      <ul className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                          {Object.entries(savedDashboards).map(([name, courses]) => (
+                              <li key={name} className="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 p-2 rounded-md group">
+                                  <button onClick={() => handleLoadDashboard(name)} className="flex-1 text-left">
+                                      <span className="text-slate-800 dark:text-slate-200 font-medium text-sm group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">{name}</span>
+                                  </button>
+                                  <div className="flex items-center space-x-1 sm:space-x-2">
+                                      <button onClick={() => handleShareDashboard(name)} title="Share" className="p-1.5 rounded-full text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-600 transition">
+                                          <ShareIcon className="h-4 w-4" />
+                                      </button>
+                                      <button onClick={() => handleExportSpecificDashboard(name)} title="Export" className="p-1.5 rounded-full text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-600 transition">
+                                          <DownloadIcon className="h-4 w-4" />
+                                      </button>
+                                      <button onClick={() => handleDeleteDashboard(name)} title="Delete" className="p-1.5 rounded-full text-slate-500 hover:bg-red-100 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-500/20 dark:hover:text-red-400 transition">
+                                          <TrashIcon className="h-4 w-4" />
+                                      </button>
+                                  </div>
+                              </li>
+                          ))}
+                      </ul>
+                  ) : (
+                      <p className="text-slate-500 dark:text-slate-400 text-sm">No saved dashboards.</p>
+                  )}
+                  <hr className="my-4 border-slate-200 dark:border-slate-700" />
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-lg mb-3">Global Actions</h3>
+                  <input type="file" ref={importFileRef} onChange={handleImportDashboard} accept=".json,application/json" style={{ display: 'none' }} />
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                      <button onClick={() => importFileRef.current?.click()} className="w-full text-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 flex items-center justify-center gap-2">
+                          <UploadIcon /> Import
+                      </button>
+                      <button onClick={handleClearDashboard} className="w-full text-center px-3 py-2 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600">
+                          Clear Dashboard
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+      
       {isBugModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={() => setIsBugModalOpen(false)}>
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-lg p-6 relative" onClick={e => e.stopPropagation()}>

@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
+
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { TrackedCourse, CustomRules } from '../types';
 import { Counter } from './Counter';
 
@@ -35,28 +36,53 @@ const XIcon: React.FC<{ className?: string }> = ({ className = 'h-6 w-6' }) => (
     </svg>
 );
 
+const ArrowUpIcon: React.FC<{ className?: string }> = ({ className = 'h-5 w-5' }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+    </svg>
+);
+
+const ArrowDownIcon: React.FC<{ className?: string }> = ({ className = 'h-5 w-5' }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+);
+
+const CalculatorIcon: React.FC<{ className?: string }> = ({ className = 'h-6 w-6' }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m-6 4h6m-6 4h6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012 2z" />
+    </svg>
+);
+
 interface CourseCardProps {
   trackedCourse: TrackedCourse;
   onUpdate: (id: string, updates: { missedLectures?: number; missedTutorials?: number; customRules?: CustomRules | null }) => void;
   onRemove: (id: string) => void;
+  onMove: (id: string, direction: 'up' | 'down') => void;
+  isFirst: boolean;
+  isLast: boolean;
 }
 
-export const CalculatorDisplay: React.FC<CourseCardProps> = ({
+export const CalculatorDisplay: React.FC<CourseCardProps> = React.memo(({
   trackedCourse,
   onUpdate,
   onRemove,
+  onMove,
+  isFirst,
+  isLast
 }) => {
   const { course, missedLectures, missedTutorials, id, customRules } = trackedCourse;
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAbsenceCombosModalOpen, setIsAbsenceCombosModalOpen] = useState(false);
 
-  const noAbsenceKeywords = useMemo(() => ['Graduation Project', 'Industrial Training'], []);
-  const noTutorialKeywords = useMemo(() => ['Seminar'], []);
+  const noAbsenceKeywords = useMemo(() => ['graduation project', 'industrial training'], []);
+  const noTutorialKeywords = useMemo(() => ['seminar'], []);
   const noTutorialPrefixes = useMemo(() => ['GENS'], []);
 
-  const hasNoAbsence = useMemo(() => noAbsenceKeywords.some(kw => course.name.toLowerCase().includes(kw.toLowerCase())), [course.name, noAbsenceKeywords]);
-  const hasNoTutorial = useMemo(() => noTutorialKeywords.some(kw => course.name.toLowerCase().includes(kw.toLowerCase())) || noTutorialPrefixes.some(p => course.code.startsWith(p)), [course.name, course.code, noTutorialKeywords, noTutorialPrefixes]);
-  const isUncertainPolicy = useMemo(() => course.creditHours === 1 && !course.name.toLowerCase().includes('industrial training'), [course.creditHours, course.name]);
-
+  const hasNoAbsence = useMemo(() => noAbsenceKeywords.some(kw => course.name.toLowerCase().includes(kw)), [course.name, noAbsenceKeywords]);
+  const hasNoTutorial = useMemo(() => noTutorialKeywords.some(kw => course.name.toLowerCase().includes(kw)) || noTutorialPrefixes.some(p => course.code.startsWith(p)), [course.name, course.code, noTutorialKeywords, noTutorialPrefixes]);
+  const isUncertainPolicy = useMemo(() => course.creditHours === 1 && !hasNoAbsence, [course.creditHours, hasNoAbsence]);
+  
   const calculation = useMemo(() => {
     const isThreeCredit = course.creditHours === 3;
     
@@ -95,11 +121,25 @@ export const CalculatorDisplay: React.FC<CourseCardProps> = ({
 
   const header = (
     <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 printable-text">{course.name}</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 printable-text">{course.creditHours} Credit Hours Course ({course.code})</p>
+        <div className="flex items-start gap-3">
+          <div className="flex flex-col items-center gap-1 no-print">
+            <button onClick={() => onMove(id, 'up')} disabled={isFirst} className="p-1 rounded-full text-slate-400 dark:text-slate-500 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700">
+                <ArrowUpIcon />
+            </button>
+            <button onClick={() => onMove(id, 'down')} disabled={isLast} className="p-1 rounded-full text-slate-400 dark:text-slate-500 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700">
+                <ArrowDownIcon />
+            </button>
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100 printable-text">{course.name}</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 printable-text">{course.creditHours} Credit Hours Course ({course.code})</p>
+          </div>
         </div>
-        <div className="flex items-center space-x-2 flex-shrink-0 no-print">
+        <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0 no-print">
+          <button onClick={() => setIsAbsenceCombosModalOpen(true)} className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-semibold p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+            <CalculatorIcon className="h-4 w-4" />
+            <span>Scenarios</span>
+          </button>
           <button onClick={() => setIsSettingsOpen(true)} aria-label={`Custom rules for ${course.name}`} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
             <SettingsIcon />
           </button>
@@ -112,7 +152,7 @@ export const CalculatorDisplay: React.FC<CourseCardProps> = ({
 
   if (isUncertainPolicy) {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-4 sm:p-5 mb-4 border border-slate-200 dark:border-slate-700 printable-card">
+      <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-md p-4 sm:p-5 mb-4 border border-slate-200 dark:border-slate-700 printable-card`}>
         {header}
         <div className="text-center p-6 bg-red-50 dark:bg-red-900/20 rounded-lg mt-4 border border-red-200 dark:border-red-500/30 flex items-center justify-center space-x-3">
           <ExclamationIcon className="h-8 w-8 text-red-500 dark:text-red-400 flex-shrink-0" />
@@ -127,7 +167,7 @@ export const CalculatorDisplay: React.FC<CourseCardProps> = ({
 
   if (hasNoAbsence) {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-4 sm:p-5 mb-4 border border-slate-200 dark:border-slate-700 printable-card">
+      <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-md p-4 sm:p-5 mb-4 border border-slate-200 dark:border-slate-700 printable-card`}>
         {header}
         <div className="text-center p-6 bg-slate-50 dark:bg-slate-800/50 rounded-lg mt-4 border border-slate-200 dark:border-slate-700">
             <p className="font-semibold text-slate-700 dark:text-slate-200">No Absence Tracking</p>
@@ -139,7 +179,7 @@ export const CalculatorDisplay: React.FC<CourseCardProps> = ({
 
   return (
     <>
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-4 sm:p-5 mb-4 border border-slate-200 dark:border-slate-700 printable-card dark:printable-bg">
+    <div className={`bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-5 mb-4 border border-slate-200 dark:border-slate-700 printable-card dark:printable-bg transition-shadow duration-300 shadow-md`}>
       {header}
       {customRules && (
         <div className="no-print mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-500/30 flex items-center space-x-3">
@@ -204,9 +244,79 @@ export const CalculatorDisplay: React.FC<CourseCardProps> = ({
       </div>
     </div>
     {isSettingsOpen && <CustomRulesModal course={course} customRules={customRules} onClose={() => setIsSettingsOpen(false)} onSave={(rules) => onUpdate(id, { customRules: rules })} onReset={() => onUpdate(id, { customRules: null })} />}
+    {isAbsenceCombosModalOpen && <AbsenceCombosModal calculation={calculation} hasNoTutorial={hasNoTutorial} courseName={course.name} onClose={() => setIsAbsenceCombosModalOpen(false)} />}
     </>
   );
-};
+});
+
+// --- Absence Combinations Modal ---
+const AbsenceCombosModal: React.FC<{
+    calculation: ReturnType<typeof useMemo<any>>;
+    hasNoTutorial: boolean;
+    courseName: string;
+    onClose: () => void;
+}> = ({ calculation, hasNoTutorial, courseName, onClose }) => {
+    
+    const combos = useMemo(() => {
+        const { remainingPoints, lectureCost, tutorialCost } = calculation;
+        if (remainingPoints < 0) return [];
+        
+        const results: { lectures: number; tutorials: number }[] = [];
+        
+        if (hasNoTutorial) {
+            const maxLectures = lectureCost > 0 ? Math.floor(remainingPoints / lectureCost) : Infinity;
+            if (maxLectures !== Infinity && maxLectures >= 0) {
+                 for (let l = 0; l <= maxLectures; l++) {
+                    results.push({ lectures: l, tutorials: 0 });
+                }
+            }
+            return results.reverse();
+        }
+
+        if (lectureCost <= 0 && tutorialCost <= 0) return [];
+
+        for (let l = 0; (l * lectureCost) <= remainingPoints; l++) {
+            const pointsAfterLectures = remainingPoints - (l * lectureCost);
+            const t = tutorialCost > 0 ? Math.floor(pointsAfterLectures / tutorialCost) : Infinity;
+            if (t !== Infinity) {
+                results.push({ lectures: l, tutorials: t });
+            }
+        }
+        return results;
+    }, [calculation, hasNoTutorial]);
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 no-print" onClick={onClose}>
+            <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6 relative" onClick={e => e.stopPropagation()}>
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200">
+                    <XIcon />
+                </button>
+                <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-1">Absence Combinations</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">For {courseName}</p>
+                <p className="text-slate-600 dark:text-slate-300 mb-4">
+                    With your remaining <span className="font-bold text-indigo-600 dark:text-indigo-400">{calculation.remainingPoints} points</span>, you can still miss any of the following combinations:
+                </p>
+                
+                <div className="max-h-64 overflow-y-auto bg-slate-50 dark:bg-slate-900/50 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
+                    {combos.length > 0 ? (
+                        <ul className="divide-y divide-slate-200 dark:divide-slate-700">
+                            {combos.map((combo, index) => (
+                                <li key={index} className="flex justify-between items-center py-2 text-slate-700 dark:text-slate-300">
+                                    <span>{combo.lectures} Lecture(s)</span>
+                                    {!hasNoTutorial && <span className="text-slate-400">+</span>}
+                                    {!hasNoTutorial && <span>{combo.tutorials} Tutorial(s)</span>}
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                         <p className="text-center text-slate-500 dark:text-slate-400 py-4">No combinations possible with the remaining points.</p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 
 // --- Custom Rules Modal Component ---
 
@@ -227,10 +337,25 @@ const CustomRulesModal: React.FC<{
         secondWarning: isThreeCredit ? 2 : 1,
     };
     
-    const [rules, setRules] = useState<CustomRules>(customRules || defaultRules);
+    const [formState, setFormState] = useState(() => {
+        const initialState = customRules || defaultRules;
+        return {
+            totalPoints: String(initialState.totalPoints),
+            lectureCost: String(initialState.lectureCost),
+            tutorialCost: String(initialState.tutorialCost),
+            firstWarning: String(initialState.firstWarning),
+            secondWarning: String(initialState.secondWarning),
+        };
+    });
 
     const handleSave = () => {
-        onSave(rules);
+        onSave({
+            totalPoints: parseInt(formState.totalPoints, 10) || 0,
+            lectureCost: parseInt(formState.lectureCost, 10) || 0,
+            tutorialCost: parseInt(formState.tutorialCost, 10) || 0,
+            firstWarning: parseInt(formState.firstWarning, 10) || 0,
+            secondWarning: parseInt(formState.secondWarning, 10) || 0,
+        });
         onClose();
     };
     
@@ -240,9 +365,8 @@ const CustomRulesModal: React.FC<{
     };
 
     const handleInputChange = (field: keyof CustomRules, value: string) => {
-        const numValue = parseInt(value, 10);
-        if (!isNaN(numValue) && numValue >= 0) {
-            setRules(prev => ({...prev, [field]: numValue }));
+        if (/^\d*$/.test(value)) {
+            setFormState(prev => ({...prev, [field]: value }));
         }
     };
     
@@ -259,15 +383,15 @@ const CustomRulesModal: React.FC<{
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <label className="block col-span-1 sm:col-span-3">
                             <span className="text-slate-700 dark:text-slate-300 font-medium">Total Starting Points</span>
-                            <input type="number" min="0" value={rules.totalPoints} onChange={e => handleInputChange('totalPoints', e.target.value)} className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-slate-900 dark:text-slate-200" />
+                            <input type="text" inputMode="numeric" value={formState.totalPoints} onChange={e => handleInputChange('totalPoints', e.target.value)} className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-slate-900 dark:text-slate-200" />
                         </label>
                         <label className="block">
                             <span className="text-slate-700 dark:text-slate-300 font-medium">Lecture Cost</span>
-                            <input type="number" min="0" value={rules.lectureCost} onChange={e => handleInputChange('lectureCost', e.target.value)} className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-slate-900 dark:text-slate-200" />
+                            <input type="text" inputMode="numeric" value={formState.lectureCost} onChange={e => handleInputChange('lectureCost', e.target.value)} className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-slate-900 dark:text-slate-200" />
                         </label>
                         <label className="block">
                             <span className="text-slate-700 dark:text-slate-300 font-medium">Tutorial Cost</span>
-                            <input type="number" min="0" value={rules.tutorialCost} onChange={e => handleInputChange('tutorialCost', e.target.value)} className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-slate-900 dark:text-slate-200" />
+                            <input type="text" inputMode="numeric" value={formState.tutorialCost} onChange={e => handleInputChange('tutorialCost', e.target.value)} className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-slate-900 dark:text-slate-200" />
                         </label>
                     </div>
                      <div>
@@ -275,11 +399,11 @@ const CustomRulesModal: React.FC<{
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                              <label className="block">
                                 <span className="text-sm text-slate-500 dark:text-slate-400">1st Warning At/Below</span>
-                                <input type="number" min="0" value={rules.firstWarning} onChange={e => handleInputChange('firstWarning', e.target.value)} className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-slate-900 dark:text-slate-200" />
+                                <input type="text" inputMode="numeric" value={formState.firstWarning} onChange={e => handleInputChange('firstWarning', e.target.value)} className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-slate-900 dark:text-slate-200" />
                             </label>
                              <label className="block">
                                 <span className="text-sm text-slate-500 dark:text-slate-400">2nd Warning At/Below</span>
-                                <input type="number" min="0" value={rules.secondWarning} onChange={e => handleInputChange('secondWarning', e.target.value)} className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-slate-900 dark:text-slate-200" />
+                                <input type="text" inputMode="numeric" value={formState.secondWarning} onChange={e => handleInputChange('secondWarning', e.target.value)} className="mt-1 w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-slate-900 dark:text-slate-200" />
                             </label>
                         </div>
                     </div>
