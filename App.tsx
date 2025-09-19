@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { programsData } from './data/courseData';
 import { Program, Course, TrackedCourse, SavedDashboards, CustomRules } from './types';
@@ -167,6 +165,20 @@ const Combobox: React.FC<ComboboxProps> = ({ options, value, onChange, placehold
                 disabled={disabled}
                 className="w-full p-3 pr-10 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-900 dark:text-slate-100"
             />
+             {value && !disabled && (
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onChange('');
+                        setInputValue('');
+                    }}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3"
+                    aria-label="Clear selection"
+                >
+                    <XCircleIcon className="h-5 w-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" />
+                </button>
+            )}
             {isOpen && !disabled && (
                 <ul className="absolute z-10 w-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {filteredOptions.length > 0 ? (
@@ -198,32 +210,38 @@ const App: React.FC = () => {
   const [selectedProgramName, setSelectedProgramName] = useState<string>('');
   const [selectedSemester, setSelectedSemester] = useState<string>('');
   const [selectedCourseCode, setSelectedCourseCode] = useState<string>('');
-  const [trackedCourses, setTrackedCourses] = useState<TrackedCourse[]>(() => {
-      const saved = localStorage.getItem('trackedCourses');
-      return saved ? JSON.parse(saved) : [];
-  });
   const [dashboardName, setDashboardName] = useState('');
-  const [isDashboardManagerOpen, setIsDashboardManagerOpen] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
+  const [copiedItem, setCopiedItem] = useState<'email' | 'body' | null>(null);
+  
+  // Bulk add states
+  const [bulkAddProgram, setBulkAddProgram] = useState<string>('');
+  const [bulkAddSemester, setBulkAddSemester] = useState<string>('');
+  
+  // Modal states
+  const [isDashboardManagerOpen, setIsDashboardManagerOpen] = useState(false);
   const [isBugModalOpen, setIsBugModalOpen] = useState(false);
   const [isExplanationModalOpen, setIsExplanationModalOpen] = useState(false);
-  const [copiedItem, setCopiedItem] = useState<'email' | 'body' | null>(null);
+  const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
 
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('theme') || 'light';
-  });
+  // Theme state
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
 
   useEffect(() => {
     const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    if (theme === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // --- Storage Helper ---
+  // Prevent body scroll when any modal is open
+  useEffect(() => {
+    document.body.style.overflow = isAnyModalOpen ? 'hidden' : 'auto';
+    return () => { document.body.style.overflow = 'auto'; };
+  }, [isAnyModalOpen]);
+
+
+  // --- Storage & State Management ---
   const getFromStorage = <T,>(key: string, fallback: T): T => {
     try {
       const item = window.localStorage.getItem(key);
@@ -231,24 +249,35 @@ const App: React.FC = () => {
     } catch (error) { return fallback; }
   };
   
+  const [trackedCourses, setTrackedCourses] = useState<TrackedCourse[]>(() => getFromStorage('trackedCourses', []));
   const [savedDashboards, setSavedDashboards] = useState<SavedDashboards>(() => getFromStorage('savedDashboards', {}));
+  const [activeDashboardName, setActiveDashboardName] = useState<string | null>(() => getFromStorage('activeDashboardName', null));
+  const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState<boolean>(() => getFromStorage('isAutoSaveEnabled', true));
 
+  // --- Effects for persisting state ---
   useEffect(() => { localStorage.setItem('trackedCourses', JSON.stringify(trackedCourses)); }, [trackedCourses]);
   useEffect(() => { localStorage.setItem('savedDashboards', JSON.stringify(savedDashboards)); }, [savedDashboards]);
-  
+  useEffect(() => { localStorage.setItem('activeDashboardName', JSON.stringify(activeDashboardName)); }, [activeDashboardName]);
+  useEffect(() => { localStorage.setItem('isAutoSaveEnabled', JSON.stringify(isAutoSaveEnabled)); }, [isAutoSaveEnabled]);
+
+  // Auto-save logic
+  useEffect(() => {
+    if (isAutoSaveEnabled && activeDashboardName && savedDashboards[activeDashboardName]) {
+      setSavedDashboards(prev => ({ ...prev, [activeDashboardName]: trackedCourses }));
+    }
+  }, [trackedCourses, isAutoSaveEnabled, activeDashboardName]); // Not including savedDashboards to prevent cycles
+
+  // --- Memoized calculations & sorted data ---
   const selectedProgram = useMemo(() => programsData.find(p => p.name === selectedProgramName), [selectedProgramName]);
-  
   const totalCreditHours = useMemo(() => trackedCourses.reduce((sum, tc) => sum + tc.course.creditHours, 0), [trackedCourses]);
-
-  const sortedPrograms = useMemo(() => {
-    return [...programsData].sort((a, b) => a.name.localeCompare(b.name));
-  }, []);
-
+  const sortedPrograms = useMemo(() => [...programsData].sort((a, b) => a.name.localeCompare(b.name)), []);
   const sortedCourses = useMemo(() => {
     if (!selectedProgram) return [];
     return [...selectedProgram.courses].sort((a, b) => a.name.localeCompare(b.name));
   }, [selectedProgram]);
 
+
+  // --- Event Handlers ---
   const handleProgramChange = (value: string) => {
     setSelectedProgramName(value);
     setSelectedCourseCode('');
@@ -260,6 +289,36 @@ const App: React.FC = () => {
       setTrackedCourses(prev => [{ course: courseToAdd, missedLectures: 0, missedTutorials: 0, id: `${courseToAdd.code}-${Date.now()}` }, ...prev]);
       setSelectedCourseCode('');
     }
+  };
+
+  const handleAddSemesterCourses = () => {
+    const program = programsData.find(p => p.name === bulkAddProgram);
+    if (!program || !bulkAddSemester) return;
+
+    const semester = parseInt(bulkAddSemester, 10);
+    const coursesForSemester = program.courses.filter(c => c.semester === semester);
+    
+    if (coursesForSemester.length === 0) {
+        alert(`No courses found for ${program.name} in Semester ${semester}.`);
+        return;
+    }
+
+    const newCoursesToAdd = coursesForSemester
+        .filter(course => !trackedCourses.some(tc => tc.course.code === course.code))
+        .map(course => ({
+            course: course,
+            missedLectures: 0,
+            missedTutorials: 0,
+            id: `${course.code}-${Date.now()}`
+        }));
+
+    if (newCoursesToAdd.length === 0) {
+        alert(`All courses for Semester ${semester} are already on your dashboard.`);
+        return;
+    }
+
+    setTrackedCourses(prev => [...newCoursesToAdd, ...prev]);
+    setBulkAddSemester('');
   };
 
   const handleUpdateCourse = useCallback((id: string, updates: Partial<Pick<TrackedCourse, 'missedLectures' | 'missedTutorials' | 'customRules'>>) => {
@@ -274,32 +333,43 @@ const App: React.FC = () => {
     setTrackedCourses(prev => {
         const index = prev.findIndex(c => c.id === id);
         if (index === -1) return prev;
-
         const newIndex = direction === 'up' ? index - 1 : index + 1;
         if (newIndex < 0 || newIndex >= prev.length) return prev;
-
         const newCourses = [...prev];
-        // Swap elements
         [newCourses[index], newCourses[newIndex]] = [newCourses[newIndex], newCourses[index]];
-        
         return newCourses;
     });
   }, []);
-
+  
+  const handleClearTrackedCourses = () => {
+    if (window.confirm("Are you sure you want to remove all courses from your dashboard? This action cannot be undone.")) {
+        setTrackedCourses([]);
+    }
+  };
 
   const handleSaveDashboard = () => {
     const name = dashboardName.trim();
     if (!name || trackedCourses.length === 0) return;
     setSavedDashboards(prev => ({ ...prev, [name]: trackedCourses }));
+    setActiveDashboardName(name); // Set as active dashboard on save
     setDashboardName('');
+  };
+
+  const handleSaveActiveDashboard = () => {
+      if (activeDashboardName) {
+          setSavedDashboards(prev => ({ ...prev, [activeDashboardName]: trackedCourses }));
+          alert(`Dashboard "${activeDashboardName}" has been saved.`);
+      }
   };
   
   const handleLoadDashboard = (name: string) => {
     if (savedDashboards[name]) {
         setTrackedCourses(savedDashboards[name]);
+        setActiveDashboardName(name);
         setSelectedCourseCode('');
     }
     setIsDashboardManagerOpen(false);
+    setIsAnyModalOpen(false);
   };
 
   const handleDeleteDashboard = (name: string) => {
@@ -310,22 +380,24 @@ const App: React.FC = () => {
             delete newDashboards[name];
             return newDashboards;
         });
+        if (name === activeDashboardName) {
+            setActiveDashboardName(null);
+        }
     }
   };
   
-  const handleClearDashboard = () => {
+  const handleClearDashboardFromManager = () => {
     if (window.confirm("Are you sure you want to clear the entire dashboard? This action cannot be undone.")) {
         setTrackedCourses([]);
+        setActiveDashboardName(null);
         setIsDashboardManagerOpen(false);
+        setIsAnyModalOpen(false);
     }
   };
   
   const handleExportSpecificDashboard = (name: string) => {
     const dashboardToExport = savedDashboards[name];
-    if (!dashboardToExport) {
-        alert("Could not find that dashboard.");
-        return;
-    }
+    if (!dashboardToExport) return alert("Could not find that dashboard.");
     const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(dashboardToExport, null, 2))}`;
     const link = document.createElement("a");
     link.href = jsonString;
@@ -333,17 +405,9 @@ const App: React.FC = () => {
     link.click();
   }
 
-  const handlePrintSpecificDashboard = (name: string) => {
-    if (window.confirm(`This will load the "${name}" dashboard as your active one to prepare it for sharing or printing. Continue?`)) {
-        handleLoadDashboard(name);
-        setTimeout(() => window.print(), 100);
-    }
-  }
-
   const handleShareDashboard = async (name: string) => {
       const dashboardCourses = savedDashboards[name];
       if (!dashboardCourses) return;
-      
       let shareText = `Absence Dashboard: ${name}\n\n`;
       dashboardCourses.forEach(tc => {
           const isThreeCredit = tc.course.creditHours === 3;
@@ -357,30 +421,23 @@ const App: React.FC = () => {
       shareText += `\nTracked with Absence Tool.`;
 
       if (navigator.share) {
-          try {
-              await navigator.share({ title: `Absence Dashboard: ${name}`, text: shareText });
-          } catch (error) {
-              console.error('Error sharing dashboard:', error);
-              handlePrintSpecificDashboard(name); // Fallback to print if sharing fails
-          }
+          await navigator.share({ title: `Absence Dashboard: ${name}`, text: shareText }).catch(console.error);
       } else {
-          handlePrintSpecificDashboard(name); // Fallback for browsers without Web Share API
+          alert("Share API not supported. You can export the dashboard instead.");
       }
   };
   
   const handleImportDashboard = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (e) => {
         try {
-            const text = e.target?.result;
-            if (typeof text !== 'string') throw new Error("File could not be read.");
+            const text = e.target?.result as string;
             const importedCourses: TrackedCourse[] = JSON.parse(text);
-            
             if (Array.isArray(importedCourses) && importedCourses.every(c => c.course?.code && c.id && 'missedLectures' in c)) {
                 setTrackedCourses(importedCourses);
+                setActiveDashboardName(null); // Imported dashboard is unsaved
                 alert("Dashboard imported successfully!");
             } else {
                 throw new Error("Invalid dashboard file format.");
@@ -388,19 +445,18 @@ const App: React.FC = () => {
         } catch (error) {
             alert(`Error importing dashboard: ${error instanceof Error ? error.message : "Unknown error"}`);
         } finally {
-            if (event.target) {
-                event.target.value = '';
-            }
+            if (event.target) event.target.value = '';
         }
     };
     reader.readAsText(file);
     setIsDashboardManagerOpen(false);
+    setIsAnyModalOpen(false);
   };
 
   const bugReportDetails = {
     recipient: 'Chadi.Cherri06@eng-st.cu.edu.eg',
     subject: 'Bug Report - Absence Tool',
-    body: `Hello,\n\nI'd like to report a bug.\n\n**Bug Description:**\n[Please describe the bug in detail here]\n\n**Steps to Reproduce:**\n1.\n2.\n3.\n\n**Expected Behavior:**\n[What did you expect to happen?]\n\n**Actual Behavior:**\n[What actually happened?]\n\n---\nApp Version: 4.1.0\nBrowser: [Please fill in your browser and version, e.g., Chrome 125]`
+    body: `Hello,\n\nI'd like to report a bug.\n\n**Bug Description:**\n[Please describe the bug in detail here]\n\n**Steps to Reproduce:**\n1.\n2.\n3.\n\n**Expected Behavior:**\n[What did you expect to happen?]\n\n**Actual Behavior:**\n[What actually happened?]\n\n---\nApp Version: 4.2.0\nBrowser: [Please fill in your browser and version, e.g., Chrome 125]`
   };
 
   const handleCopy = (text: string, type: 'email' | 'body') => {
@@ -411,20 +467,23 @@ const App: React.FC = () => {
   };
 
   const semesterOptions = [
-    { value: 'Fall/Spring', label: 'Fall or Spring Semester' },
+    { value: 'Fall/Spring', label: 'Fall/Spring Semester' },
     { value: 'Summer', label: 'Summer Semester' },
   ];
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex flex-col items-center p-4 font-sans transition-colors duration-300">
-      <main className="w-full max-w-5xl mx-auto">
+      <main className="w-full max-w-7xl mx-auto">
         <div className="bg-white dark:bg-slate-800/50 dark:backdrop-blur-sm rounded-2xl shadow-xl dark:shadow-slate-900/50 p-6 sm:p-10 border border-transparent dark:border-slate-700/50">
-          <div className="flex items-center justify-between mb-2 no-print">
-             <div className="flex items-center justify-center gap-2">
-                <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-slate-100">Absence Tool</h1>
-                <button onClick={() => setIsExplanationModalOpen(true)} className="text-slate-400 hover:text-indigo-500 dark:text-slate-500 dark:hover:text-indigo-400">
-                    <QuestionMarkCircleIcon className="h-7 w-7" />
-                </button>
+          <div className="flex items-start justify-between mb-2 no-print">
+            <div>
+              <div className="flex items-center justify-center gap-2">
+                  <h1 className="text-3xl sm:text-4xl font-bold text-slate-800 dark:text-slate-100">Absence Tool</h1>
+                  <button onClick={() => {setIsExplanationModalOpen(true); setIsAnyModalOpen(true);}} className="text-slate-400 hover:text-indigo-500 dark:text-slate-500 dark:hover:text-indigo-400">
+                      <QuestionMarkCircleIcon className="h-7 w-7" />
+                  </button>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 ml-1">(CUFE - Credit Hours System)</p>
             </div>
             <div className="flex items-center gap-4">
                <button
@@ -436,30 +495,18 @@ const App: React.FC = () => {
                         <SunIcon className="h-4 w-4 text-yellow-500" />
                         <MoonIcon className="h-4 w-4 text-sky-300" />
                     </div>
-                    <div
-                        className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${
-                        theme === 'dark' ? 'translate-x-8' : 'translate-x-0'
-                        }`}
-                    />
+                    <div className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 ${theme === 'dark' ? 'translate-x-8' : 'translate-x-0'}`} />
                 </button>
             </div>
           </div>
-          <p className="text-center text-slate-500 dark:text-slate-400 mb-8 no-print">Track, save, and manage your course absence points.</p>
+          <p className="text-slate-500 dark:text-slate-400 mb-8 no-print">Track, save, and manage your course absence points.</p>
           
           <div className="space-y-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700/50 no-print">
+            <h3 className="font-semibold text-lg text-slate-700 dark:text-slate-200 -mb-2">Add a Course Manually</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative">
-                <Combobox options={semesterOptions} value={selectedSemester} onChange={setSelectedSemester} placeholder="Select a Semester" />
-                {selectedSemester && <button onClick={() => setSelectedSemester('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><XCircleIcon /></button>}
-              </div>
-              <div className="relative">
-                 <Combobox options={sortedPrograms.map(p => ({ value: p.name, label: p.name }))} value={selectedProgramName} onChange={handleProgramChange} placeholder="Search for a Program" />
-                 {selectedProgramName && <button onClick={() => { setSelectedProgramName(''); setSelectedCourseCode(''); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><XCircleIcon /></button>}
-              </div>
-              <div className="relative">
-                <Combobox options={sortedCourses.map(c => ({ value: c.code, label: `${c.name} (${c.code})` }))} value={selectedCourseCode} onChange={setSelectedCourseCode} placeholder="Search for a Course" disabled={!selectedProgram || !selectedSemester} />
-                {selectedCourseCode && <button onClick={() => setSelectedCourseCode('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><XCircleIcon /></button>}
-              </div>
+              <Combobox options={semesterOptions} value={selectedSemester} onChange={setSelectedSemester} placeholder="Select a Semester" />
+              <Combobox options={sortedPrograms.map(p => ({ value: p.name, label: p.name }))} value={selectedProgramName} onChange={handleProgramChange} placeholder="Search for a Program" />
+              <Combobox options={sortedCourses.map(c => ({ value: c.code, label: `${c.name} (${c.code})` }))} value={selectedCourseCode} onChange={setSelectedCourseCode} placeholder="Search for a Course" disabled={!selectedProgram || !selectedSemester} />
             </div>
 
             {selectedSemester === 'Summer' && (
@@ -472,27 +519,50 @@ const App: React.FC = () => {
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
                 <div className="flex items-center gap-4">
-                  <button onClick={() => { setSelectedSemester(''); setSelectedProgramName(''); setSelectedCourseCode(''); }} className="p-2 text-sm text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100 font-semibold">Clear Selections</button>
                    {trackedCourses.length > 0 && (
-                    <div className="text-left">
-                        <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{totalCreditHours} Total Credit Hours</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">on dashboard</p>
-                    </div>
+                    <>
+                        <div className="text-left">
+                            <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{totalCreditHours} Total Credit Hours</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">on dashboard</p>
+                        </div>
+                        <button onClick={handleClearTrackedCourses} className="px-3 py-2 text-sm text-red-600 dark:text-red-400 font-semibold rounded-lg border border-red-500/50 dark:border-red-400/50 hover:bg-red-50 dark:hover:bg-red-500/10 transition">
+                            Clear Dashboard
+                        </button>
+                    </>
                    )}
                 </div>
-                <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-3 w-full sm:w-auto">
-                    <button
-                        onClick={handleAddCourse}
-                        disabled={!selectedCourseCode || trackedCourses.some(tc => tc.course.code === selectedCourseCode) || !selectedSemester}
-                        className="w-full sm:w-auto p-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition disabled:bg-slate-400 dark:disabled:bg-slate-600 disabled:cursor-not-allowed"
-                    >
+
+                <div className="flex-grow hidden sm:block"></div>
+
+                <div className="flex items-center justify-end gap-3 w-full sm:w-auto">
+                    <button onClick={handleAddCourse} disabled={!selectedCourseCode || trackedCourses.some(tc => tc.course.code === selectedCourseCode) || !selectedSemester} className="w-full sm:w-auto p-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition disabled:bg-slate-400 dark:disabled:bg-slate-600 disabled:cursor-not-allowed">
                         Add Course
                     </button>
-                    <button onClick={() => setIsDashboardManagerOpen(true)} className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-4 py-3 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">
+                    <button onClick={() => {setIsDashboardManagerOpen(true); setIsAnyModalOpen(true);}} className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-4 py-3 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">
                         <FolderIcon />
                         Manage Dashboards
+                    </button>
+                </div>
+            </div>
+            <div className="mt-6 border-t border-slate-200 dark:border-slate-700 pt-4 no-print">
+                <h3 className="font-semibold text-lg text-slate-700 dark:text-slate-200 mb-2">Bulk Add by Semester</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Combobox options={sortedPrograms.map(p => ({ value: p.name, label: p.name }))} value={bulkAddProgram} onChange={setBulkAddProgram} placeholder="Select a Program" />
+                    <Combobox
+                        options={Array.from({ length: 8 }, (_, i) => ({ value: String(i + 1), label: `Semester ${i + 1}` }))}
+                        value={bulkAddSemester}
+                        onChange={setBulkAddSemester}
+                        placeholder="Select Semester"
+                        disabled={!bulkAddProgram}
+                    />
+                    <button
+                        onClick={handleAddSemesterCourses}
+                        disabled={!bulkAddProgram || !bulkAddSemester}
+                        className="w-full p-3 bg-teal-600 text-white font-semibold rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition disabled:bg-slate-400 dark:disabled:bg-slate-600 disabled:cursor-not-allowed"
+                    >
+                        Add Semester Courses
                     </button>
                 </div>
             </div>
@@ -500,17 +570,20 @@ const App: React.FC = () => {
 
           <div className="mt-8">
             {trackedCourses.length > 0 ? (
-                trackedCourses.map((tc, index) => (
-                    <CalculatorDisplay
-                        key={tc.id}
-                        trackedCourse={tc}
-                        onUpdate={handleUpdateCourse}
-                        onRemove={handleRemoveCourse}
-                        onMove={handleMoveCourse}
-                        isFirst={index === 0}
-                        isLast={index === trackedCourses.length - 1}
-                    />
-                ))
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {trackedCourses.map((tc, index) => (
+                        <CalculatorDisplay
+                            key={tc.id}
+                            trackedCourse={tc}
+                            onUpdate={handleUpdateCourse}
+                            onRemove={handleRemoveCourse}
+                            onMove={handleMoveCourse}
+                            isFirst={index === 0}
+                            isLast={index === trackedCourses.length - 1}
+                            setIsAnyModalOpen={setIsAnyModalOpen}
+                        />
+                    ))}
+                </div>
             ) : (
               <div className="text-center p-8 bg-slate-50 dark:bg-slate-900/50 rounded-lg mt-6 border-dashed border-2 border-slate-300 dark:border-slate-700 no-print">
                 <p className="text-slate-500 dark:text-slate-400">Your dashboard is empty.</p>
@@ -525,100 +598,92 @@ const App: React.FC = () => {
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 Student-led initiative, not an official university website.
               </p>
-              <button onClick={() => setIsBugModalOpen(true)} className="inline-flex items-center gap-2 px-3 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition text-sm">
+              <button onClick={() => {setIsBugModalOpen(true); setIsAnyModalOpen(true);}} className="inline-flex items-center gap-2 px-3 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition text-sm">
                 <BugIcon className="h-4 w-4" />
                 Report a Bug
               </button>
           </div>
           <div className="pt-4 border-t border-slate-200 dark:border-slate-700 w-full sm:w-1/2 mx-auto">
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                Created by Chadi Cherri
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Chadi.Cherri06@eng-st.cu.edu.eg
-              </p>
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Created by Chadi Cherri</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Chadi.Cherri06@eng-st.cu.edu.eg</p>
           </div>
           <p className="text-xs text-slate-400 dark:text-slate-500">&copy; {new Date().getFullYear()} Absence Tool. All Rights Reserved.</p>
         </footer>
       </main>
 
       {isDashboardManagerOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 no-print" onClick={() => setIsDashboardManagerOpen(false)}>
-              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 no-print" onClick={() => {setIsDashboardManagerOpen(false); setIsAnyModalOpen(false);}}>
+              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
                   <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-lg mb-3">Save Current Dashboard</h3>
                   <div className="flex space-x-2">
                       <input type="text" value={dashboardName} onChange={e => setDashboardName(e.target.value)} placeholder="Dashboard name..." className="w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 rounded-md text-sm text-slate-900 dark:text-slate-200"/>
                       <button onClick={handleSaveDashboard} disabled={!dashboardName.trim() || trackedCourses.length === 0} className="px-3 py-2 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 disabled:bg-slate-400 dark:disabled:bg-slate-600 text-sm">Save</button>
                   </div>
                   <hr className="my-4 border-slate-200 dark:border-slate-700" />
+
+                  <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-lg mb-3">Dashboard Settings</h3>
+                  <div className="space-y-3">
+                      <div className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700/50 rounded-md">
+                          <label htmlFor="autosave-toggle" className="text-sm font-medium text-slate-700 dark:text-slate-200">Auto-save active dashboard</label>
+                          <button onClick={() => setIsAutoSaveEnabled(!isAutoSaveEnabled)} id="autosave-toggle" className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ${isAutoSaveEnabled ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'}`}>
+                              <span className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform ${isAutoSaveEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                          </button>
+                      </div>
+                      <button onClick={handleSaveActiveDashboard} disabled={!activeDashboardName} className="w-full text-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                          Save Changes to "{activeDashboardName || '...'}"
+                      </button>
+                  </div>
+                  <hr className="my-4 border-slate-200 dark:border-slate-700" />
+                  
                   <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-lg mb-3">Saved Dashboards</h3>
                   {Object.keys(savedDashboards).length > 0 ? (
                       <ul className="space-y-2 max-h-48 overflow-y-auto pr-2">
-                          {Object.entries(savedDashboards).map(([name, courses]) => (
-                              <li key={name} className="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 p-2 rounded-md group">
+                          {Object.entries(savedDashboards).map(([name]) => (
+                              <li key={name} className={`flex justify-between items-center p-2 rounded-md group ${activeDashboardName === name ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'bg-slate-50 dark:bg-slate-700/50'}`}>
                                   <button onClick={() => handleLoadDashboard(name)} className="flex-1 text-left">
                                       <span className="text-slate-800 dark:text-slate-200 font-medium text-sm group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">{name}</span>
                                   </button>
                                   <div className="flex items-center space-x-1 sm:space-x-2">
-                                      <button onClick={() => handleShareDashboard(name)} title="Share" className="p-1.5 rounded-full text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-600 transition">
-                                          <ShareIcon className="h-4 w-4" />
-                                      </button>
-                                      <button onClick={() => handleExportSpecificDashboard(name)} title="Export" className="p-1.5 rounded-full text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-600 transition">
-                                          <DownloadIcon className="h-4 w-4" />
-                                      </button>
-                                      <button onClick={() => handleDeleteDashboard(name)} title="Delete" className="p-1.5 rounded-full text-slate-500 hover:bg-red-100 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-500/20 dark:hover:text-red-400 transition">
-                                          <TrashIcon className="h-4 w-4" />
-                                      </button>
+                                      <button onClick={() => handleShareDashboard(name)} title="Share" className="p-1.5 rounded-full text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-600 transition"> <ShareIcon className="h-4 w-4" /> </button>
+                                      <button onClick={() => handleExportSpecificDashboard(name)} title="Export" className="p-1.5 rounded-full text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-600 transition"> <DownloadIcon className="h-4 w-4" /> </button>
+                                      <button onClick={() => handleDeleteDashboard(name)} title="Delete" className="p-1.5 rounded-full text-slate-500 hover:bg-red-100 hover:text-red-600 dark:text-slate-400 dark:hover:bg-red-500/20 dark:hover:text-red-400 transition"> <TrashIcon className="h-4 w-4" /> </button>
                                   </div>
                               </li>
                           ))}
                       </ul>
-                  ) : (
-                      <p className="text-slate-500 dark:text-slate-400 text-sm">No saved dashboards.</p>
-                  )}
+                  ) : <p className="text-slate-500 dark:text-slate-400 text-sm">No saved dashboards.</p> }
                   <hr className="my-4 border-slate-200 dark:border-slate-700" />
+
                   <h3 className="font-semibold text-slate-800 dark:text-slate-100 text-lg mb-3">Global Actions</h3>
                   <input type="file" ref={importFileRef} onChange={handleImportDashboard} accept=".json,application/json" style={{ display: 'none' }} />
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                      <button onClick={() => importFileRef.current?.click()} className="w-full text-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 flex items-center justify-center gap-2">
-                          <UploadIcon /> Import
-                      </button>
-                      <button onClick={handleClearDashboard} className="w-full text-center px-3 py-2 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600">
-                          Clear Dashboard
-                      </button>
+                      {/* FIX: Corrected typo from importFileFileRef to importFileRef */}
+                      <button onClick={() => importFileRef.current?.click()} className="w-full text-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 flex items-center justify-center gap-2"> <UploadIcon /> Import </button>
+                      <button onClick={handleClearDashboardFromManager} className="w-full text-center px-3 py-2 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600"> Clear Dashboard </button>
                   </div>
               </div>
           </div>
       )}
       
       {isBugModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={() => setIsBugModalOpen(false)}>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={() => {setIsBugModalOpen(false); setIsAnyModalOpen(false);}}>
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-lg p-6 relative" onClick={e => e.stopPropagation()}>
-                <button onClick={() => setIsBugModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200">
-                    <XIcon />
-                </button>
+                <button onClick={() => {setIsBugModalOpen(false); setIsAnyModalOpen(false);}} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"> <XIcon /> </button>
                 <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Report a Bug</h2>
-                <p className="text-slate-600 dark:text-slate-300 mb-4">
-                    To report a bug, please send an email. You can copy the email address and the template below to help us understand the issue.
-                </p>
-
+                <p className="text-slate-600 dark:text-slate-300 mb-4">To report a bug, please send an email. You can copy the email address and the template below to help us understand the issue.</p>
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Contact Email</label>
                         <div className="flex items-center space-x-2">
                             <input type="text" readOnly value={bugReportDetails.recipient} className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md text-slate-900 dark:text-slate-100" />
-                            <button onClick={() => handleCopy(bugReportDetails.recipient, 'email')} className="flex items-center justify-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 w-24">
-                                {copiedItem === 'email' ? <CheckIcon className="text-green-600"/> : <><ClipboardIcon className="mr-1 h-4 w-4"/> Copy</>}
-                            </button>
+                            <button onClick={() => handleCopy(bugReportDetails.recipient, 'email')} className="flex items-center justify-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 w-24"> {copiedItem === 'email' ? <CheckIcon className="text-green-600"/> : <><ClipboardIcon className="mr-1 h-4 w-4"/> Copy</>} </button>
                         </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Bug Report Template</label>
                          <div className="flex items-start space-x-2">
                             <textarea readOnly value={bugReportDetails.body} className="w-full p-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md h-48 resize-none font-mono text-xs text-slate-900 dark:text-slate-100"></textarea>
-                            <button onClick={() => handleCopy(bugReportDetails.body, 'body')}  className="flex items-center justify-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 w-24">
-                               {copiedItem === 'body' ? <CheckIcon className="text-green-600"/> : <><ClipboardIcon className="mr-1 h-4 w-4"/> Copy</>}
-                            </button>
+                            <button onClick={() => handleCopy(bugReportDetails.body, 'body')}  className="flex items-center justify-center px-3 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold rounded-md hover:bg-slate-300 dark:hover:bg-slate-500 w-24"> {copiedItem === 'body' ? <CheckIcon className="text-green-600"/> : <><ClipboardIcon className="mr-1 h-4 w-4"/> Copy</>} </button>
                         </div>
                     </div>
                 </div>
@@ -627,11 +692,9 @@ const App: React.FC = () => {
       )}
 
       {isExplanationModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={() => setIsExplanationModalOpen(false)}>
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4" onClick={() => {setIsExplanationModalOpen(false); setIsAnyModalOpen(false);}}>
             <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-lg p-6 relative" onClick={e => e.stopPropagation()}>
-                <button onClick={() => setIsExplanationModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200">
-                    <XIcon />
-                </button>
+                <button onClick={() => {setIsExplanationModalOpen(false); setIsAnyModalOpen(false);}} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200"> <XIcon /> </button>
                 <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">Absence Policy Explained</h2>
                 <div className="space-y-4 text-slate-600 dark:text-slate-300">
                     <p>The absence point system is based on the credit hours (CH) of each course.</p>

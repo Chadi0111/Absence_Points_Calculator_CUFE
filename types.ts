@@ -2,6 +2,7 @@ export interface Course {
   code: string;
   name: string;
   creditHours: number;
+  semester: number;
 }
 
 export interface Program {
